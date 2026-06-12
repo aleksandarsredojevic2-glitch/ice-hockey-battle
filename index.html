@@ -97,7 +97,9 @@
     
     <script>
         // 1. Definiši socket globalno
-const socket = new WebSocket('ws://' + window.location.hostname + ':3000');
+// Automatski detektuje da li je http ili https, i koristi port sa kog se sajt učitao
+const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const socket = new WebSocket(`${protocol}://${window.location.host}`);
 
 // 2. Dodaj logove da vidimo šta se dešava
 socket.onopen = () => {
