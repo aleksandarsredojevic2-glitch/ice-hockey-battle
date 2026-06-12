@@ -10,7 +10,7 @@ const wss = new WebSocket.Server({ server: server });
 // 3. Slušaj na portu koji Render dodeli
 const port = process.env.PORT || 10000;
 
-server.listen(port, () => {
+server.listen(port, '0.0.0.0', () => {
     console.log(`Server radi na portu ${port}!`);
 });
 
