@@ -411,10 +411,10 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
 
         socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    
+    console.log("SERVER JE POSLAO OVO:", data);
     // --- INTEGRACIJA MASTER SISTEMA ---
     if (data.type === 'chat') {
-        const chatBox = document.getElementById('chatBox');
+        const chatBox = document.getElementById('chat-box');
         let div = document.createElement('div');
         // Ovde sada koristimo nick koji stiže sa servera
         div.innerHTML = `<b>${data.nick}:</b> ${data.text}`;
@@ -625,6 +625,16 @@ function joinGame() {
     
     ctx.restore();
     requestAnimationFrame(gameLoop);
+}
+// Funkcija za slanje (već si napravio event listener za Enter, 
+// ali ovo je sigurna varijanta za slanje)
+function sendChatMessage(text) {
+    if (text.trim() !== "") {
+        socket.send(JSON.stringify({ 
+            type: 'chat', 
+            text: text 
+        }));
+    }
 }
         resizeCanvas(); gameLoop();
     </script>
