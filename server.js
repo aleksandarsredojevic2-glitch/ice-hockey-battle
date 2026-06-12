@@ -18,18 +18,35 @@ wss.on('connection', (ws) => {
     let myRole = null;
     ws.on('message', (message) => {
         const data = JSON.parse(message);
+
+        // Postavljanje nadimka
         if (data.type === 'set-nick') {
             if (!players.p1) { myRole = 'p1'; players.p1 = ws; }
             else if (!players.p2) { myRole = 'p2'; players.p2 = ws; }
             else { myRole = 'spectator'; }
+            
             nicknames[myRole] = data.nick;
             ws.send(JSON.stringify({ type: 'init-role', role: myRole }));
+            return;
         }
+
+        // Chat logika sa imenom
+        if (data.type === 'chat') {
+            const chatMessage = JSON.stringify({
+                type: 'chat',
+                nick: nicknames[myRole] || "Gost",
+                text: data.text
+            });
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) client.send(chatMessage);
+            });
+            return;
+        }
+
+        // Kretanje igrača
         if (myRole !== 'spectator') {
             wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(message.toString());
-                }
+                if (client.readyState === WebSocket.OPEN) client.send(message.toString());
             });
         }
     });
