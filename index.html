@@ -413,8 +413,12 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     const data = JSON.parse(event.data);
     
     // --- INTEGRACIJA MASTER SISTEMA ---
-    if (data.type === 'init') {
-        isMaster = data.isMaster;
+    if (data.type === 'chat') {
+        // Ovako sada ispisuješ poruku:
+        console.log(`${data.nick}: ${data.text}`);
+        // Dodaj ovo u svoj HTML element za chat:
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML += `<div><b>${data.nick}:</b> ${data.text}</div>`;
     }
     else if (data.type === 'puck-update') {
         // Ako NISI Master, ažuriraj target poziciju za Lerp
