@@ -17,34 +17,28 @@ let nicknames = { p1: "Crveni", p2: "Plavi" };
 wss.on('connection', (ws) => {
     let myRole = null;
     ws.on('message', (message) => {
-        const data = JSON.parse(message);
+    let data;
+    try { data = JSON.parse(message); } catch (e) { return; }
 
-        // Postavljanje nadimka
-        if (data.type === 'set-nick') {
-            if (!players.p1) { myRole = 'p1'; players.p1 = ws; }
-            else if (!players.p2) { myRole = 'p2'; players.p2 = ws; }
-            else { myRole = 'spectator'; }
-            
-            nicknames[myRole] = data.nick;
-            ws.send(JSON.stringify({ type: 'init-role', role: myRole }));
-            return;
-        }
-
-        // Chat logika sa imenom
-        if (data.type === 'chat') {
-            const chatMessage = JSON.stringify({
-                type: 'chat',
-                nick: nicknames[myRole] || "Gost",
-                text: data.text
-            });
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) client.send(chatMessage);
-            });
-            return;
-        }
-
-        // Kretanje igrača
-        if (myRole !== 'spectator') {
+    if (data.type === 'set-nick') {
+        if (!players.p1) { myRole = 'p1'; players.p1 = ws; }
+        else if (!players.p2) { myRole = 'p2'; players.p2 = ws; }
+        else { myRole = 'spectator'; }
+        nicknames[myRole] = data.nick;
+        ws.send(JSON.stringify({ type: 'init-role', role: myRole }));
+    } 
+    else if (data.type === 'chat') {
+        // Obogaćena poruka
+        const chatData = JSON.stringify({
+            type: 'chat',
+            nick: nicknames[myRole] || "Gost",
+            text: data.text
+        });
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) client.send(chatData);
+        });
+    } 
+    else {
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) client.send(message.toString());
             });
