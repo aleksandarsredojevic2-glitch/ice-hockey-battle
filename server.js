@@ -1,5 +1,7 @@
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 3000 });
+// Koristimo process.env.PORT ako postoji (za Render), ili 3000 (za tvoj kompjuter)
+const port = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: port });
 
 let players = { p1: null, p2: null };
 let nicknames = { p1: "Crveni", p2: "Plavi" };
@@ -22,7 +24,7 @@ wss.on('connection', (ws) => {
         if (myRole !== 'spectator') {
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(message);
+                    client.send(message.toString()); // message.toString() je sigurnije
                 }
             });
         }
@@ -33,4 +35,4 @@ wss.on('connection', (ws) => {
     });
 });
 
-console.log("Server radi na portu 3000!");
+console.log(`Server radi na portu ${port}!`);
