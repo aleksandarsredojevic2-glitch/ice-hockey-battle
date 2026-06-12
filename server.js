@@ -19,14 +19,27 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
     let data;
     try { data = JSON.parse(message); } catch (e) { return; }
-
-    if (data.type === 'set-nick') {
-        if (!players.p1) { myRole = 'p1'; players.p1 = ws; }
-        else if (!players.p2) { myRole = 'p2'; players.p2 = ws; }
-        else { myRole = 'spectator'; }
-        nicknames[myRole] = data.nick;
-        ws.send(JSON.stringify({ type: 'init-role', role: myRole }));
-    } 
+if (data.type === 'set-nick') {
+    if (!players.p1) { myRole = 'p1'; players.p1 = ws; }
+    else if (!players.p2) { myRole = 'p2'; players.p2 = ws; }
+    else { myRole = 'spectator'; }
+    
+    nicknames[myRole] = data.nick;
+    
+    // 1. Potvrdi onome ko se povezao
+    ws.send(JSON.stringify({ type: 'init-role', role: myRole }));
+    
+    // 2. OBAVESTI SVE OSTALE o novom nadimku
+    const nickUpdate = JSON.stringify({
+        type: 'update-nick',
+        role: myRole,
+        nick: data.nick
+    });
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) client.send(nickUpdate);
+    });
+    return;
+}
     else if (data.type === 'chat') {
         // Obogaćena poruka
         const chatData = JSON.stringify({
