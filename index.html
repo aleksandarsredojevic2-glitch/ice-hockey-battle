@@ -123,7 +123,7 @@ chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && chatInput.value.trim() !== "") {
         let msg = chatInput.value;
         // Šalješ poruku na server
-        socket.send(JSON.stringify({ type: 'chat-message', text: msg }));
+        socket.send(JSON.stringify({ type: 'chat', text: msg }));
         chatInput.value = '';
     }
 });
