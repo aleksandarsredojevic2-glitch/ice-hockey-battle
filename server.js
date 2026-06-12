@@ -1,6 +1,6 @@
 const WebSocket = require('ws');
 // Koristimo process.env.PORT ako postoji (za Render), ili 3000 (za tvoj kompjuter)
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 const wss = new WebSocket.Server({ port: port });
 
 let players = { p1: null, p2: null };
