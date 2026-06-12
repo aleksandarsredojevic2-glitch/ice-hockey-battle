@@ -452,6 +452,11 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
     } 
+else if (data.type === 'sync-nicks') {
+    // Ažuriraj sva imena odjednom
+    playerNicks = data.nicks;
+    console.log("Sinhronizovana imena:", playerNicks);
+}
     else if (data.type === 'sync-puck') {
         puck.x = data.x; puck.y = data.y; puck.vx = data.vx; puck.vy = data.vy;
     } 

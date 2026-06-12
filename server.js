@@ -16,6 +16,13 @@ let nicknames = { p1: "Crveni", p2: "Plavi" };
 
 wss.on('connection', (ws) => {
     let myRole = null;
+
+    // 1. POŠALJI TRENUTNA IMENA NOVOM KLIJENTU ODMAH
+    ws.send(JSON.stringify({ 
+        type: 'sync-nicks', 
+        nicks: nicknames 
+    }));
+
     ws.on('message', (message) => {
     let data;
     try { data = JSON.parse(message); } catch (e) { return; }
