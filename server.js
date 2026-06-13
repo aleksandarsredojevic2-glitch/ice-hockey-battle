@@ -6,16 +6,15 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-// Globalno stanje koje server čuva
+
+// POSTAVLJENE POČETNE POZICIJE (Sredina terena, umesto 0,0)
 let gameState = {
-    p1: { x: 0, y: 0 },
-    p2: { x: 0, y: 0 }
+    p1: { x: 800, y: 750 },
+    p2: { x: 2200, y: 750 }
 };
 
-// 1. Posluži statičke fajlove
 app.use(express.static(__dirname));
 
-// 2. WebSocket logika
 let players = { p1: null, p2: null };
 let nicknames = { p1: "Crveni", p2: "Plavi" };
 
@@ -31,7 +30,6 @@ wss.on('connection', (ws) => {
         let data;
         try { data = JSON.parse(message); } catch (e) { return; }
 
-        // SINHRONIZACIJA: Kada novi igrač traži gde su drugi
         if (data.type === 'request-sync') {
             ws.send(JSON.stringify({
                 type: 'sync-players',
@@ -58,11 +56,12 @@ wss.on('connection', (ws) => {
             return;
         } 
         else if (data.type === 'player-update') {
-            // KLJUČNO: Server ažurira stanje u gameState objektu
-            if (data.role === 'p1') { gameState.p1 = { x: data.x, y: data.y }; }
-            else if (data.role === 'p2') { gameState.p2 = { x: data.x, y: data.y }; }
+            // PROVERA: Ažuriraj samo ako su koordinate validne (nisu 0,0)
+            if (data.x !== 0 || data.y !== 0) {
+                if (data.role === 'p1') { gameState.p1 = { x: data.x, y: data.y }; }
+                else if (data.role === 'p2') { gameState.p2 = { x: data.x, y: data.y }; }
+            }
             
-            // Prosledi update ostalima
             const messageString = message.toString();
             wss.clients.forEach(client => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) client.send(messageString);
