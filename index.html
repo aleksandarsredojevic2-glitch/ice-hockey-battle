@@ -448,6 +448,12 @@ else if (data.type === 'sync-nicks') {
     else if (data.type === 'sync-puck') {
         puck.x = data.x; puck.y = data.y; puck.vx = data.vx; puck.vy = data.vy;
     } 
+
+    else if (data.type === 'sync-players') {
+    p1.x = data.p1.x; p1.y = data.p1.y;
+    p2.x = data.p2.x; p2.y = data.p2.y;
+    console.log("Sinhronizovano sa serverom!");
+}
     else if (data.type === 'reset-round') {
         if (data.team === 'home') scoreHome++; else if (data.team === 'away') scoreAway++;
         document.getElementById("score").innerText = `${scoreHome} : ${scoreAway}`;

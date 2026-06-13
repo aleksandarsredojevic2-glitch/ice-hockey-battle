@@ -25,6 +25,21 @@ wss.on('connection', (ws) => {
     ws.on('message', (message) => {
         let data;
         try { data = JSON.parse(message); } catch (e) { return; }
+        // Kada klijent traži sinhronizaciju (dodaj ovo u switch/if strukturu)
+if (data.type === 'request-sync') {
+    // Pošalji ovom specifičnom klijentu gde se nalaze igrači
+    ws.send(JSON.stringify({
+        type: 'sync-players',
+        p1: { x: p1.x, y: p1.y }, // tvoje varijable na serveru
+        p2: { x: p2.x, y: p2.y }
+    }));
+    
+    // Pošalji mu i imena
+    ws.send(JSON.stringify({
+        type: 'sync-nicks',
+        nicks: playerNicks // objekat sa imenima
+    }));
+}
 
         if (data.type === 'set-nick') {
             if (!players.p1) { myRole = 'p1'; players.p1 = ws; }
