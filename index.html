@@ -247,26 +247,44 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     const g = s.goal;
     const bounceCoeff = isPuck ? 0.78 : 0.2;
 
-    // 1. NAJBITNIJE: Prvo drži pak unutar glavnih zidova (bez golova)
-    // OVO SPREČAVA ISPADANJE SA TERENA
-    if (obj.x - obj.radius < s.left) { obj.x = s.left + obj.radius; obj.vx *= -bounceCoeff; }
-    if (obj.x + obj.radius > s.right) { obj.x = s.right - obj.radius; obj.vx *= -bounceCoeff; }
-    if (obj.y - obj.radius < s.top) { obj.y = s.top + obj.radius; obj.vy *= -bounceCoeff; }
-    if (obj.y + obj.radius > s.bottom) { obj.y = s.bottom - obj.radius; obj.vy *= -bounceCoeff; }
+    // 1. OGRANIČENJA ZIDOVA (Sprečava ispadanje)
+    // Ako je objekat van granica, postavi ga na samu ivicu i invertuj brzinu
+    if (obj.x - obj.radius < s.left) { 
+        obj.x = s.left + obj.radius; 
+        obj.vx *= -bounceCoeff; 
+    }
+    if (obj.x + obj.radius > s.right) { 
+        obj.x = s.right - obj.radius; 
+        obj.vx *= -bounceCoeff; 
+    }
+    if (obj.y - obj.radius < s.top) { 
+        obj.y = s.top + obj.radius; 
+        obj.vy *= -bounceCoeff; 
+    }
+    if (obj.y + obj.radius > s.bottom) { 
+        obj.y = s.bottom - obj.radius; 
+        obj.vy *= -bounceCoeff; 
+    }
 
-    // 2. Provera uglova (zaobljene ivice)
+    // 2. ZAOBLJENI UGLOVI (Fizika ćoškova)
     let centers = [
-        {x: s.left + s.cornerRadius, y: s.top + s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.top + s.cornerRadius},
-        {x: s.left + s.cornerRadius, y: s.bottom - s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.bottom - s.cornerRadius}
+        {x: s.left + s.cornerRadius, y: s.top + s.cornerRadius}, 
+        {x: s.right - s.cornerRadius, y: s.top + s.cornerRadius},
+        {x: s.left + s.cornerRadius, y: s.bottom - s.cornerRadius}, 
+        {x: s.right - s.cornerRadius, y: s.bottom - s.cornerRadius}
     ];
     
     centers.forEach(c => {
-        let dx = obj.x - c.x; let dy = obj.y - c.y;
+        let dx = obj.x - c.x; 
+        let dy = obj.y - c.y;
         let dist = Math.sqrt(dx * dx + dy * dy);
         let maxDist = s.cornerRadius - obj.radius;
+        
         if (dist > maxDist) {
-            let nx = dx / dist; let ny = dy / dist;
-            obj.x = c.x + nx * maxDist; obj.y = c.y + ny * maxDist;
+            let nx = dx / dist; 
+            let ny = dy / dist;
+            obj.x = c.x + nx * maxDist; 
+            obj.y = c.y + ny * maxDist;
             let dotProduct = obj.vx * nx + obj.vy * ny;
             if (dotProduct > 0) {
                 obj.vx = (obj.vx - (1 + bounceCoeff) * dotProduct * nx);
@@ -275,14 +293,15 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         }
     });
 
-    // 3. Tek sada proveri golove (samo ako je pak unutar gol linija)
+    // 3. GOLOVI (Proveravaju se na kraju)
     if (isPuck) {
-        // Logika za golove ostaje ista, samo je pomerena ovde
+        // Levi gol
         if (obj.x + obj.radius > s.goalLineLeft - g.w && obj.x - obj.radius < s.goalLineLeft && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
              if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
                  if (myRole === 'p1' || myRole === 'p2') socket.send(JSON.stringify({ type: 'goal-scored', team: 'away' }));
              }
         }
+        // Desni gol
         if (obj.x + obj.radius > s.goalLineRight && obj.x - obj.radius < s.goalLineRight + g.w && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
              if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
                  if (myRole === 'p1' || myRole === 'p2') socket.send(JSON.stringify({ type: 'goal-scored', team: 'home' }));
