@@ -89,11 +89,3 @@ const port = process.env.PORT || 10000;
 server.listen(port, '0.0.0.0', () => {
     console.log(`Server radi na portu ${port}!`);
 });
-
-else if (data.type === 'init-role') {
-    myRole = data.role;
-    // ... tvoj postojeći kod ...
-    
-    // DODAJ OVO:
-    socket.send(JSON.stringify({ type: 'request-sync' }));
-}
