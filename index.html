@@ -242,99 +242,54 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             }
         }
 
-        function handleRinkBoundaries(obj, isPuck = false) {
+       function handleRinkBoundaries(obj, isPuck = false) {
     const s = getSpecs();
     const g = s.goal;
     const bounceCoeff = isPuck ? 0.78 : 0.2;
 
-    // Funkcija koja proverava sudar sa linijom (da li je horizontalna ili vertikalna)
-    function checkLineCollision(x1, y1, x2, y2) {
-        if (obj.x + obj.radius > Math.min(x1, x2) && obj.x - obj.radius < Math.max(x1, x2) &&
-            obj.y + obj.radius > Math.min(y1, y2) && obj.y - obj.radius < Math.max(y1, y2)) {
-            
-            // Odbijanje
-            if (x1 === x2) { // Vertikalna linija
-                obj.vx *= -bounceCoeff;
-                obj.x = (obj.x < x1) ? x1 - obj.radius : x1 + obj.radius;
-            } else { // Horizontalna linija
-                obj.vy *= -bounceCoeff;
-                obj.y = (obj.y < y1) ? y1 - obj.radius : y1 + obj.radius;
-            }
-        }
-    }
+    // 1. NAJBITNIJE: Prvo drži pak unutar glavnih zidova (bez golova)
+    // OVO SPREČAVA ISPADANJE SA TERENA
+    if (obj.x - obj.radius < s.left) { obj.x = s.left + obj.radius; obj.vx *= -bounceCoeff; }
+    if (obj.x + obj.radius > s.right) { obj.x = s.right - obj.radius; obj.vx *= -bounceCoeff; }
+    if (obj.y - obj.radius < s.top) { obj.y = s.top + obj.radius; obj.vy *= -bounceCoeff; }
+    if (obj.y + obj.radius > s.bottom) { obj.y = s.bottom - obj.radius; obj.vy *= -bounceCoeff; }
 
-    // LEVI GOL: Crtamo fiziku oko celog crvenog okvira
-    // Gornja horizontalna
-    checkLineCollision(s.goalLineLeft - g.w, g.y, s.goalLineLeft, g.y);
-    // Donja horizontalna
-    checkLineCollision(s.goalLineLeft - g.w, g.y + g.h, s.goalLineLeft, g.y + g.h);
-    // Zadnja vertikalna
-    checkLineCollision(s.goalLineLeft - g.w, g.y, s.goalLineLeft - g.w, g.y + g.h);
-
-    // DESNI GOL: Isto to
-    checkLineCollision(s.goalLineRight + g.w, g.y, s.goalLineRight, g.y);
-    checkLineCollision(s.goalLineRight + g.w, g.y + g.h, s.goalLineRight, g.y + g.h);
-    checkLineCollision(s.goalLineRight + g.w, g.y, s.goalLineRight + g.w, g.y + g.h);
-
-    // ... ostatak logike za gol (puck-in-goal) ostaje isti ...
-
-    // 2. Logika za prolazak paka kroz gol (gol-linija)
-    if (obj.x + obj.radius > s.goalLineLeft - g.w && obj.x - obj.radius < s.goalLineLeft && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
-        if (isPuck) {
-            if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
-                if (obj.x <= s.goalLineLeft && obj.x > s.goalLineLeft - g.w) {
-                    if (myRole === 'p1' || myRole === 'p2') { socket.send(JSON.stringify({ type: 'goal-scored', team: 'away' })); }
-                    return;
-                }
-            }
-        }
-    }
-
-    if (obj.x + obj.radius > s.goalLineRight && obj.x - obj.radius < s.goalLineRight + g.w && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
-        if (isPuck) {
-            if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
-                if (obj.x >= s.goalLineRight && obj.x < s.goalLineRight + g.w) {
-                    if (myRole === 'p1' || myRole === 'p2') { socket.send(JSON.stringify({ type: 'goal-scored', team: 'home' })); }
-                    return;
-                }
-            }
-        }
-    }
-
-    // 3. Logika za zidove (ivice terena i zaobljene uglove)
+    // 2. Provera uglova (zaobljene ivice)
     let centers = [
         {x: s.left + s.cornerRadius, y: s.top + s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.top + s.cornerRadius},
         {x: s.left + s.cornerRadius, y: s.bottom - s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.bottom - s.cornerRadius}
     ];
-    let inCorner = false;
+    
     centers.forEach(c => {
-        let inCornerX = (c.x > obj.x && c.x === s.left + s.cornerRadius) || (c.x < obj.x && c.x === s.right - s.cornerRadius);
-        let inCornerY = (c.y > obj.y && c.y === s.top + s.cornerRadius) || (c.y < obj.y && c.y === s.bottom - s.cornerRadius);
-        if (inCornerX && inCornerY) {
-            let dx = obj.x - c.x; let dy = obj.y - c.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            let maxDist = s.cornerRadius - obj.radius;
-            if (dist > maxDist) {
-                inCorner = true;
-                let nx = dx / dist; let ny = dy / dist;
-                obj.x = c.x + nx * maxDist; obj.y = c.y + ny * maxDist;
-                let dotProduct = obj.vx * nx + obj.vy * ny;
-                if (dotProduct > 0) { 
-                    obj.vx = (obj.vx - (1 + bounceCoeff) * dotProduct * nx);
-                    obj.vy = (obj.vy - (1 + bounceCoeff) * dotProduct * ny);
-                }
+        let dx = obj.x - c.x; let dy = obj.y - c.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        let maxDist = s.cornerRadius - obj.radius;
+        if (dist > maxDist) {
+            let nx = dx / dist; let ny = dy / dist;
+            obj.x = c.x + nx * maxDist; obj.y = c.y + ny * maxDist;
+            let dotProduct = obj.vx * nx + obj.vy * ny;
+            if (dotProduct > 0) {
+                obj.vx = (obj.vx - (1 + bounceCoeff) * dotProduct * nx);
+                obj.vy = (obj.vy - (1 + bounceCoeff) * dotProduct * ny);
             }
         }
     });
 
-    if (!inCorner) {
-        if (obj.x - obj.radius < s.left) { obj.x = s.left + obj.radius; obj.vx *= -bounceCoeff; }
-        if (obj.x + obj.radius > s.right) { obj.x = s.right - obj.radius; obj.vx *= -bounceCoeff; }
-        if (obj.y - obj.radius < s.top) { obj.y = s.top + obj.radius; obj.vy *= -bounceCoeff; }
-        if (obj.y + obj.radius > s.bottom) { obj.y = s.bottom - obj.radius; obj.vy *= -bounceCoeff; }
+    // 3. Tek sada proveri golove (samo ako je pak unutar gol linija)
+    if (isPuck) {
+        // Logika za golove ostaje ista, samo je pomerena ovde
+        if (obj.x + obj.radius > s.goalLineLeft - g.w && obj.x - obj.radius < s.goalLineLeft && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
+             if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
+                 if (myRole === 'p1' || myRole === 'p2') socket.send(JSON.stringify({ type: 'goal-scored', team: 'away' }));
+             }
+        }
+        if (obj.x + obj.radius > s.goalLineRight && obj.x - obj.radius < s.goalLineRight + g.w && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
+             if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
+                 if (myRole === 'p1' || myRole === 'p2') socket.send(JSON.stringify({ type: 'goal-scored', team: 'home' }));
+             }
+        }
     }
 }
-
         function update() {
     if (document.activeElement === document.getElementById('chat-input')) return;
     if (!gameActive || myRole === 'spectator') return;
