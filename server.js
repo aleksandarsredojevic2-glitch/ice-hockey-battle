@@ -67,12 +67,19 @@ if (data.type === 'set-nick') {
             if (client.readyState === WebSocket.OPEN) client.send(chatData);
         });
     } 
+    // ... ostatak koda iznad ...
     else {
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) client.send(message.toString());
-            });
-        }
-    });
+        // Ovo su 'player-update', 'puck-update' itd.
+        const messageString = message.toString();
+        
+        wss.clients.forEach(client => {
+            // Šalji SVIMA osim onome ko je poslao poruku
+            if (client !== ws && client.readyState === WebSocket.OPEN) {
+                client.send(messageString);
+            }
+        });
+    }
+    // ... ostatak koda ispod ...
     ws.on('close', () => { if (myRole) players[myRole] = null; });
 });
 
