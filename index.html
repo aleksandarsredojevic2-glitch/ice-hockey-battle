@@ -141,7 +141,7 @@ chatInput.addEventListener('keypress', (e) => {
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            resetPositions();
+           
         }
         window.addEventListener('resize', resizeCanvas);
 
@@ -588,6 +588,8 @@ function joinGame() {
 
     // 1. Pošalji nadimak serveru
     socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
+    
+    socket.send(JSON.stringify({ type: 'request-sync' }));
     
     // 2. Pošalji zahtev za ulazak u sobu sa malim razmakom
     setTimeout(() => {
