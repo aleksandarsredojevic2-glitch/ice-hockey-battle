@@ -35,6 +35,15 @@ if (data.type === 'set-nick') {
     
     // 1. Potvrdi onome ko se povezao
     ws.send(JSON.stringify({ type: 'init-role', role: myRole }));
+   if (players.p1 && players.p2) {
+    const startMsg = JSON.stringify({ type: 'start-game' });
+    players.p1.send(startMsg);
+    players.p2.send(startMsg);
+    // Ako imaš i gledaoce, možeš poslati i njima
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) client.send(startMsg);
+    });
+}
     
     // 2. OBAVESTI SVE OSTALE o novom nadimku
     const nickUpdate = JSON.stringify({
