@@ -429,6 +429,16 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             puckTarget.y = data.y;
         }
     }
+   else if (data.type === 'player-update') {
+        // Ako je stigla pozicija igrača, ažuriraj onog drugog
+        if (data.role === 'p1') {
+            p1.x = data.x;
+            p1.y = data.y;
+        } else if (data.role === 'p2') {
+            p2.x = data.x;
+            p2.y = data.y;
+        }
+    }
     // ----------------------------------
 
     if (data.type === 'init-role') {
@@ -612,8 +622,17 @@ function joinGame() {
         return;
     }
 
-    // 1. Izračunaj gde kamera treba da bude (prati igrača)
+    // --- ŠALJI POZICIJU SERVERU ---
     let me = (myRole === 'p1') ? p1 : p2;
+    // Šaljemo poziciju da bi drugi igrač znao gde smo
+    socket.send(JSON.stringify({
+        type: 'player-update',
+        role: myRole, // Da drugi igrač zna koga da pomeri
+        x: me.x,
+        y: me.y
+    }));
+
+    // 1. Izračunaj gde kamera treba da bude (prati igrača)
     let camX = Math.max(0, Math.min(me.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
     let camY = Math.max(0, Math.min(me.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
 
@@ -621,7 +640,7 @@ function joinGame() {
     ctx.save();
     ctx.translate(-camX, -camY);
 
-    // 3. Pozovi tvoje originalne funkcije za crtanje
+    // 3. Pozovi funkcije za crtanje
     drawVectorField(); 
     drawPlayer(p1); 
     drawPlayer(p2);
