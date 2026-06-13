@@ -90,7 +90,6 @@ server.listen(port, '0.0.0.0', () => {
     console.log(`Server radi na portu ${port}!`);
 });
 
-JavaScript
 else if (data.type === 'init-role') {
     myRole = data.role;
     // ... tvoj postojeći kod ...
