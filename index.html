@@ -371,11 +371,11 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         }
     }
 
-    // 3. KOLIZIJE I FIZIKA PAKA
+   // 3. KOLIZIJE I FIZIKA PAKA
     if (isMaster) {
         handleCollision(p1, puck);
         handleCollision(p2, puck);
-        handleCollision(p1, p2);
+        // handleCollision(p1, p2); // OVO SMO UKLONILI ODAVDE
         handleRinkBoundaries(p1, false);
         handleRinkBoundaries(p2, false);
         handleRinkBoundaries(puck, true);
@@ -404,6 +404,10 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         obj.x += obj.vx;
         obj.y += obj.vy;
     });
+
+    // --- KLJUČNO: Svi igrači proveravaju koliziju jedan sa drugim ---
+    // Sada se ovo izvršava na oba klijenta, pa igrači ne mogu da prođu kroz zid
+    handleCollision(p1, p2);
 
     // 5. SLANJE PODATAKA
     socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
