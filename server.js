@@ -89,8 +89,6 @@ const port = process.env.PORT || 10000;
 server.listen(port, '0.0.0.0', () => {
     console.log(`Server radi na portu ${port}!`);
 });
-Šta još moraš da uradiš u HTML-u da bi ovo radilo:
-Da bi ova sinhronizacija proradila, klijent mora da "pita" za stanje čim dobije ulogu. U tvojoj socket.onmessage funkciji u HTML-u, nađi case 'init-role' i dodaj jednu liniju:
 
 JavaScript
 else if (data.type === 'init-role') {
