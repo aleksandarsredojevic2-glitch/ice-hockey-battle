@@ -137,7 +137,7 @@ chatInput.addEventListener('keypress', (e) => {
         let scoreHome = 0; let scoreAway = 0;
         let myRole = null; 
         let gameActive = false;
-
+        let isReady = false; // Dodaj ovo kod ostalih varijabli
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -312,7 +312,7 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         function update() {
     if (document.activeElement === document.getElementById('chat-input')) return;
     if (!gameActive || myRole === 'spectator') return;
-    
+    if (!isReady) return;
     let me = (myRole === 'p1') ? p1 : p2;
 
     // 1. INPUT: Izračunaj kretanje
@@ -428,6 +428,12 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             ? "Soba je puna." 
             : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...`;
     } 
+    else if (data.type === 'sync-players') {
+    p1.x = data.p1.x; p1.y = data.p1.y;
+    p2.x = data.p2.x; p2.y = data.p2.y;
+    isReady = true; // SADA su igrači na mestu, možemo da ih pomeramo
+    console.log("Sinhronizovano!");
+}
     else if (data.type === 'start-game') {
         gameActive = true; 
         document.getElementById("statusOverlay").style.display = 'none';
@@ -602,31 +608,34 @@ function joinGame() {
         function gameLoop() {
     update();
 
-    // PROVERA: Ako nismo još dobili ulogu, samo crtamo i čekamo
-    if (!myRole) {
+    // 1. Ako nemamo ulogu ili još nismo primili sinhronizaciju, samo crtaj (ako smeš) i vrati se
+    if (!myRole || !isReady) {
+        // Crtamo teren dok čekamo podatke
+        ctx.save();
+        drawVectorField();
+        // Ne crtamo igrače dok ne stignu validne koordinate
+        ctx.restore();
         requestAnimationFrame(gameLoop);
         return;
     }
 
-    // --- ŠALJI POZICIJU SERVERU ---
+    // 2. --- ŠALJI POZICIJU SERVERU SAMO AKO SMO SPREMNI ---
     let me = (myRole === 'p1') ? p1 : p2;
-    // Šaljemo poziciju da bi drugi igrač znao gde smo
+    
     socket.send(JSON.stringify({
         type: 'player-update',
-        role: myRole, // Da drugi igrač zna koga da pomeri
+        role: myRole,
         x: me.x,
         y: me.y
     }));
 
-    // 1. Izračunaj gde kamera treba da bude (prati igrača)
+    // 3. Kamera i Crtanje
     let camX = Math.max(0, Math.min(me.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
     let camY = Math.max(0, Math.min(me.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
 
-    // 2. Počni crtanje sa "pomerenom" kamerom
     ctx.save();
     ctx.translate(-camX, -camY);
 
-    // 3. Pozovi funkcije za crtanje
     drawVectorField(); 
     drawPlayer(p1); 
     drawPlayer(p2);
