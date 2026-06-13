@@ -417,6 +417,21 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             p2.y = data.y;
         }
     }
+
+   else if (data.type === 'sync-players') {
+    // Dodaj proveru: prihvati poziciju samo ako nije (0,0)
+    // Ili ako su to prve koordinate koje dobijamo ikada
+    if (data.p1.x !== 0 || data.p1.y !== 0) {
+        p1.x = data.p1.x;
+        p1.y = data.p1.y;
+    }
+    if (data.p2.x !== 0 || data.p2.y !== 0) {
+        p2.x = data.p2.x;
+        p2.y = data.p2.y;
+    }
+    isReady = true; 
+    console.log("Sinhronizovano!");
+}
     // ----------------------------------
 
     if (data.type === 'init-role') {
@@ -436,8 +451,10 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
 }
     else if (data.type === 'start-game') {
         gameActive = true; 
-        document.getElementById("statusOverlay").style.display = 'none';
-    } 
+        isReady = true; // Obavezno i ovo!
+    document.getElementById("statusOverlay").style.display = 'none';
+    console.log("Igra počinje!");
+}
     else if (data.type === 'update-nick') {
         playerNicks[data.role] = data.nick;
         console.log("Primljen nick za " + data.role + ": " + data.nick);
