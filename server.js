@@ -60,6 +60,7 @@ wss.on('connection', (ws) => {
         } 
         else if (data.type === 'player-update') {
             // Ažuriraj samo ako su koordinate validne (nisu 0,0)
+            if (data.x === 0 && data.y === 0) return;
             if (data.x !== 0 || data.y !== 0) {
                 if (data.role === 'p1') { gameState.p1 = { x: data.x, y: data.y }; }
                 else if (data.role === 'p2') { gameState.p2 = { x: data.x, y: data.y }; }

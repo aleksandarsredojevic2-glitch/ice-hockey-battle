@@ -628,6 +628,7 @@ function joinGame() {
     // 1. Ako nemamo ulogu ili još nismo primili sinhronizaciju, samo crtaj (ako smeš) i vrati se
     if (!myRole || !isReady) {
         // Crtamo teren dok čekamo podatke
+        console.log("Pak pozicija:", puck.x, puck.y);
         ctx.save();
         drawVectorField();
         // Ne crtamo igrače dok ne stignu validne koordinate
