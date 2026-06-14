@@ -97,9 +97,7 @@
     
     <script>
         // 1. Definiši socket globalno
-// Automatski detektuje da li je http ili https, i koristi port sa kog se sajt učitao
-const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const socket = new WebSocket(`${protocol}://${window.location.host}`);
+const socket = new WebSocket('ws://' + window.location.hostname + ':3000');
 
 // 2. Dodaj logove da vidimo šta se dešava
 socket.onopen = () => {
@@ -123,7 +121,7 @@ chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && chatInput.value.trim() !== "") {
         let msg = chatInput.value;
         // Šalješ poruku na server
-        socket.send(JSON.stringify({ type: 'chat', text: msg }));
+        socket.send(JSON.stringify({ type: 'chat-message', text: msg }));
         chatInput.value = '';
     }
 });
@@ -137,11 +135,11 @@ chatInput.addEventListener('keypress', (e) => {
         let scoreHome = 0; let scoreAway = 0;
         let myRole = null; 
         let gameActive = false;
-        let isReady = false; // Dodaj ovo kod ostalih varijabli
+
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-           
+            resetPositions();
         }
         window.addEventListener('resize', resizeCanvas);
 
@@ -242,77 +240,103 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             }
         }
 
-       function handleRinkBoundaries(obj, isPuck = false) {
+        function handleRinkBoundaries(obj, isPuck = false) {
     const s = getSpecs();
     const g = s.goal;
     const bounceCoeff = isPuck ? 0.78 : 0.2;
 
-    // 1. OGRANIČENJA ZIDOVA (Sprečava ispadanje)
-    // Ako je objekat van granica, postavi ga na samu ivicu i invertuj brzinu
-    if (obj.x - obj.radius < s.left) { 
-        obj.x = s.left + obj.radius; 
-        obj.vx *= -bounceCoeff; 
-    }
-    if (obj.x + obj.radius > s.right) { 
-        obj.x = s.right - obj.radius; 
-        obj.vx *= -bounceCoeff; 
-    }
-    if (obj.y - obj.radius < s.top) { 
-        obj.y = s.top + obj.radius; 
-        obj.vy *= -bounceCoeff; 
-    }
-    if (obj.y + obj.radius > s.bottom) { 
-        obj.y = s.bottom - obj.radius; 
-        obj.vy *= -bounceCoeff; 
+    // Funkcija koja proverava sudar sa linijom (da li je horizontalna ili vertikalna)
+    function checkLineCollision(x1, y1, x2, y2) {
+        if (obj.x + obj.radius > Math.min(x1, x2) && obj.x - obj.radius < Math.max(x1, x2) &&
+            obj.y + obj.radius > Math.min(y1, y2) && obj.y - obj.radius < Math.max(y1, y2)) {
+            
+            // Odbijanje
+            if (x1 === x2) { // Vertikalna linija
+                obj.vx *= -bounceCoeff;
+                obj.x = (obj.x < x1) ? x1 - obj.radius : x1 + obj.radius;
+            } else { // Horizontalna linija
+                obj.vy *= -bounceCoeff;
+                obj.y = (obj.y < y1) ? y1 - obj.radius : y1 + obj.radius;
+            }
+        }
     }
 
-    // 2. ZAOBLJENI UGLOVI (Fizika ćoškova)
+    // LEVI GOL: Crtamo fiziku oko celog crvenog okvira
+    // Gornja horizontalna
+    checkLineCollision(s.goalLineLeft - g.w, g.y, s.goalLineLeft, g.y);
+    // Donja horizontalna
+    checkLineCollision(s.goalLineLeft - g.w, g.y + g.h, s.goalLineLeft, g.y + g.h);
+    // Zadnja vertikalna
+    checkLineCollision(s.goalLineLeft - g.w, g.y, s.goalLineLeft - g.w, g.y + g.h);
+
+    // DESNI GOL: Isto to
+    checkLineCollision(s.goalLineRight + g.w, g.y, s.goalLineRight, g.y);
+    checkLineCollision(s.goalLineRight + g.w, g.y + g.h, s.goalLineRight, g.y + g.h);
+    checkLineCollision(s.goalLineRight + g.w, g.y, s.goalLineRight + g.w, g.y + g.h);
+
+    // ... ostatak logike za gol (puck-in-goal) ostaje isti ...
+
+    // 2. Logika za prolazak paka kroz gol (gol-linija)
+    if (obj.x + obj.radius > s.goalLineLeft - g.w && obj.x - obj.radius < s.goalLineLeft && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
+        if (isPuck) {
+            if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
+                if (obj.x <= s.goalLineLeft && obj.x > s.goalLineLeft - g.w) {
+                    if (myRole === 'p1' || myRole === 'p2') { socket.send(JSON.stringify({ type: 'goal-scored', team: 'away' })); }
+                    return;
+                }
+            }
+        }
+    }
+
+    if (obj.x + obj.radius > s.goalLineRight && obj.x - obj.radius < s.goalLineRight + g.w && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
+        if (isPuck) {
+            if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
+                if (obj.x >= s.goalLineRight && obj.x < s.goalLineRight + g.w) {
+                    if (myRole === 'p1' || myRole === 'p2') { socket.send(JSON.stringify({ type: 'goal-scored', team: 'home' })); }
+                    return;
+                }
+            }
+        }
+    }
+
+    // 3. Logika za zidove (ivice terena i zaobljene uglove)
     let centers = [
-        {x: s.left + s.cornerRadius, y: s.top + s.cornerRadius}, 
-        {x: s.right - s.cornerRadius, y: s.top + s.cornerRadius},
-        {x: s.left + s.cornerRadius, y: s.bottom - s.cornerRadius}, 
-        {x: s.right - s.cornerRadius, y: s.bottom - s.cornerRadius}
+        {x: s.left + s.cornerRadius, y: s.top + s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.top + s.cornerRadius},
+        {x: s.left + s.cornerRadius, y: s.bottom - s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.bottom - s.cornerRadius}
     ];
-    
+    let inCorner = false;
     centers.forEach(c => {
-        let dx = obj.x - c.x; 
-        let dy = obj.y - c.y;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-        let maxDist = s.cornerRadius - obj.radius;
-        
-        if (dist > maxDist) {
-            let nx = dx / dist; 
-            let ny = dy / dist;
-            obj.x = c.x + nx * maxDist; 
-            obj.y = c.y + ny * maxDist;
-            let dotProduct = obj.vx * nx + obj.vy * ny;
-            if (dotProduct > 0) {
-                obj.vx = (obj.vx - (1 + bounceCoeff) * dotProduct * nx);
-                obj.vy = (obj.vy - (1 + bounceCoeff) * dotProduct * ny);
+        let inCornerX = (c.x > obj.x && c.x === s.left + s.cornerRadius) || (c.x < obj.x && c.x === s.right - s.cornerRadius);
+        let inCornerY = (c.y > obj.y && c.y === s.top + s.cornerRadius) || (c.y < obj.y && c.y === s.bottom - s.cornerRadius);
+        if (inCornerX && inCornerY) {
+            let dx = obj.x - c.x; let dy = obj.y - c.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            let maxDist = s.cornerRadius - obj.radius;
+            if (dist > maxDist) {
+                inCorner = true;
+                let nx = dx / dist; let ny = dy / dist;
+                obj.x = c.x + nx * maxDist; obj.y = c.y + ny * maxDist;
+                let dotProduct = obj.vx * nx + obj.vy * ny;
+                if (dotProduct > 0) { 
+                    obj.vx = (obj.vx - (1 + bounceCoeff) * dotProduct * nx);
+                    obj.vy = (obj.vy - (1 + bounceCoeff) * dotProduct * ny);
+                }
             }
         }
     });
 
-    // 3. GOLOVI (Proveravaju se na kraju)
-    if (isPuck) {
-        // Levi gol
-        if (obj.x + obj.radius > s.goalLineLeft - g.w && obj.x - obj.radius < s.goalLineLeft && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
-             if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
-                 if (myRole === 'p1' || myRole === 'p2') socket.send(JSON.stringify({ type: 'goal-scored', team: 'away' }));
-             }
-        }
-        // Desni gol
-        if (obj.x + obj.radius > s.goalLineRight && obj.x - obj.radius < s.goalLineRight + g.w && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
-             if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
-                 if (myRole === 'p1' || myRole === 'p2') socket.send(JSON.stringify({ type: 'goal-scored', team: 'home' }));
-             }
-        }
+    if (!inCorner) {
+        if (obj.x - obj.radius < s.left) { obj.x = s.left + obj.radius; obj.vx *= -bounceCoeff; }
+        if (obj.x + obj.radius > s.right) { obj.x = s.right - obj.radius; obj.vx *= -bounceCoeff; }
+        if (obj.y - obj.radius < s.top) { obj.y = s.top + obj.radius; obj.vy *= -bounceCoeff; }
+        if (obj.y + obj.radius > s.bottom) { obj.y = s.bottom - obj.radius; obj.vy *= -bounceCoeff; }
     }
 }
+
         function update() {
     if (document.activeElement === document.getElementById('chat-input')) return;
     if (!gameActive || myRole === 'spectator') return;
-    if (!isReady) return;
+    
     let me = (myRole === 'p1') ? p1 : p2;
 
     // 1. INPUT: Izračunaj kretanje
@@ -345,11 +369,11 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         }
     }
 
-   // 3. KOLIZIJE I FIZIKA PAKA
+    // 3. KOLIZIJE I FIZIKA PAKA
     if (isMaster) {
         handleCollision(p1, puck);
         handleCollision(p2, puck);
-        // handleCollision(p1, p2); // OVO SMO UKLONILI ODAVDE
+        handleCollision(p1, p2);
         handleRinkBoundaries(p1, false);
         handleRinkBoundaries(p2, false);
         handleRinkBoundaries(puck, true);
@@ -379,26 +403,16 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         obj.y += obj.vy;
     });
 
-    // --- KLJUČNO: Svi igrači proveravaju koliziju jedan sa drugim ---
-    // Sada se ovo izvršava na oba klijenta, pa igrači ne mogu da prođu kroz zid
-    handleCollision(p1, p2);
-
     // 5. SLANJE PODATAKA
     socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
 }
 
         socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    console.log("SERVER JE POSLAO OVO:", data);
+    
     // --- INTEGRACIJA MASTER SISTEMA ---
-    if (data.type === 'chat') {
-        const chatBox = document.getElementById('chat-box');
-        let div = document.createElement('div');
-        // Ovde sada koristimo nick koji stiže sa servera
-        div.innerHTML = `<b>${data.nick}:</b> ${data.text}`;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        return; // Prekini ovde, ne treba ti više ništa
+    if (data.type === 'init') {
+        isMaster = data.isMaster;
     }
     else if (data.type === 'puck-update') {
         // Ako NISI Master, ažuriraj target poziciju za Lerp
@@ -407,31 +421,6 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             puckTarget.y = data.y;
         }
     }
-   else if (data.type === 'player-update') {
-        // Ako je stigla pozicija igrača, ažuriraj onog drugog
-        if (data.role === 'p1') {
-            p1.x = data.x;
-            p1.y = data.y;
-        } else if (data.role === 'p2') {
-            p2.x = data.x;
-            p2.y = data.y;
-        }
-    }
-
-   else if (data.type === 'sync-players') {
-    // Dodaj proveru: prihvati poziciju samo ako nije (0,0)
-    // Ili ako su to prve koordinate koje dobijamo ikada
-    if (data.p1.x !== 0 || data.p1.y !== 0) {
-        p1.x = data.p1.x;
-        p1.y = data.p1.y;
-    }
-    if (data.p2.x !== 0 || data.p2.y !== 0) {
-        p2.x = data.p2.x;
-        p2.y = data.p2.y;
-    }
-    isReady = true; 
-    console.log("Sinhronizovano!");
-}
     // ----------------------------------
 
     if (data.type === 'init-role') {
@@ -443,18 +432,10 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             ? "Soba je puna." 
             : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...`;
     } 
-    else if (data.type === 'sync-players') {
-    p1.x = data.p1.x; p1.y = data.p1.y;
-    p2.x = data.p2.x; p2.y = data.p2.y;
-    isReady = true; // SADA su igrači na mestu, možemo da ih pomeramo
-    console.log("Sinhronizovano!");
-}
     else if (data.type === 'start-game') {
         gameActive = true; 
-        isReady = true; // Obavezno i ovo!
-    document.getElementById("statusOverlay").style.display = 'none';
-    console.log("Igra počinje!");
-}
+        document.getElementById("statusOverlay").style.display = 'none';
+    } 
     else if (data.type === 'update-nick') {
         playerNicks[data.role] = data.nick;
         console.log("Primljen nick za " + data.role + ": " + data.nick);
@@ -463,20 +444,9 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
     } 
-else if (data.type === 'sync-nicks') {
-    // Ažuriraj sva imena odjednom
-    playerNicks = data.nicks;
-    console.log("Sinhronizovana imena:", playerNicks);
-}
     else if (data.type === 'sync-puck') {
         puck.x = data.x; puck.y = data.y; puck.vx = data.vx; puck.vy = data.vy;
     } 
-
-    else if (data.type === 'sync-players') {
-    p1.x = data.p1.x; p1.y = data.p1.y;
-    p2.x = data.p2.x; p2.y = data.p2.y;
-    console.log("Sinhronizovano sa serverom!");
-}
     else if (data.type === 'reset-round') {
         if (data.team === 'home') scoreHome++; else if (data.team === 'away') scoreAway++;
         document.getElementById("score").innerText = `${scoreHome} : ${scoreAway}`;
@@ -488,6 +458,12 @@ else if (data.type === 'sync-nicks') {
         document.getElementById("statusOverlay").style.display = 'block';
         document.getElementById("statusOverlay").innerText = "Protivnik je izašao.";
     } 
+    else if (data.type === 'chat-message') {
+        let div = document.createElement('div');
+        div.innerText = data.text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
 };
         function drawVectorField() {
             const s = getSpecs(); const g = s.goal;
@@ -612,8 +588,6 @@ function joinGame() {
     // 1. Pošalji nadimak serveru
     socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
     
-    socket.send(JSON.stringify({ type: 'request-sync' }));
-    
     // 2. Pošalji zahtev za ulazak u sobu sa malim razmakom
     setTimeout(() => {
         socket.send(JSON.stringify({ type: 'join-room', room: 'glavna' }));
@@ -625,35 +599,22 @@ function joinGame() {
         function gameLoop() {
     update();
 
-    // 1. Ako nemamo ulogu ili još nismo primili sinhronizaciju, samo crtaj (ako smeš) i vrati se
-    if (!myRole || !isReady) {
-        // Crtamo teren dok čekamo podatke
-        console.log("Pak pozicija:", puck.x, puck.y);
-        ctx.save();
-        drawVectorField();
-        // Ne crtamo igrače dok ne stignu validne koordinate
-        ctx.restore();
+    // PROVERA: Ako nismo još dobili ulogu, samo crtamo i čekamo
+    if (!myRole) {
         requestAnimationFrame(gameLoop);
         return;
     }
 
-    // 2. --- ŠALJI POZICIJU SERVERU SAMO AKO SMO SPREMNI ---
+    // 1. Izračunaj gde kamera treba da bude (prati igrača)
     let me = (myRole === 'p1') ? p1 : p2;
-    
-    socket.send(JSON.stringify({
-        type: 'player-update',
-        role: myRole,
-        x: me.x,
-        y: me.y
-    }));
-
-    // 3. Kamera i Crtanje
     let camX = Math.max(0, Math.min(me.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
     let camY = Math.max(0, Math.min(me.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
 
+    // 2. Počni crtanje sa "pomerenom" kamerom
     ctx.save();
     ctx.translate(-camX, -camY);
 
+    // 3. Pozovi tvoje originalne funkcije za crtanje
     drawVectorField(); 
     drawPlayer(p1); 
     drawPlayer(p2);
@@ -662,16 +623,6 @@ function joinGame() {
     
     ctx.restore();
     requestAnimationFrame(gameLoop);
-}
-// Funkcija za slanje (već si napravio event listener za Enter, 
-// ali ovo je sigurna varijanta za slanje)
-function sendChatMessage(text) {
-    if (text.trim() !== "") {
-        socket.send(JSON.stringify({ 
-            type: 'chat', 
-            text: text 
-        }));
-    }
 }
         resizeCanvas(); gameLoop();
     </script>
