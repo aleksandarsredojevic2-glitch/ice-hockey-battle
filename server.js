@@ -6,7 +6,6 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Stanje servera
 const clients = new Map(); // Mapa: ws -> { id, nick, role }
 let players = { p1: null, p2: null }; // Čuva WebSocket objekte za igrače
 let masterId = null; 
