@@ -7,7 +7,6 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Globalno stanje - postavljeno na startne pozicije (ne na 0,0)
 let gameState = {
     p1: { x: 800, y: 750 },
     p2: { x: 2200, y: 750 },
@@ -22,7 +21,7 @@ let nicknames = { p1: "Crveni", p2: "Plavi" };
 wss.on('connection', (ws) => {
     let myRole = null;
 
-    // Inicijalno slanje nickova
+
     ws.send(JSON.stringify({ 
         type: 'sync-nicks', 
         nicks: nicknames 
@@ -32,7 +31,7 @@ wss.on('connection', (ws) => {
         let data;
         try { data = JSON.parse(message); } catch (e) { return; }
 
-        // SINHRONIZACIJA: Šaljemo i igrače i pak
+
         if (data.type === 'request-sync') {
             ws.send(JSON.stringify({
                 type: 'sync-players',
