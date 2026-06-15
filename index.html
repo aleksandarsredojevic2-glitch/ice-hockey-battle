@@ -340,7 +340,7 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     if (!gameActive || myRole === 'spectator') return;
     
     let me = (myRole === 'p1') ? p1 : p2;
-
+    let other = (myRole === 'p1') ? p2 : p1;
     // 1. INPUT: Izračunaj kretanje
     let dx = 0; let dy = 0;
     if (keys['a'] || keys[37]) dx -= 1;
@@ -360,13 +360,14 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     me.vy *= me.friction;
     me.x += me.vx;
     me.y += me.vy;
-
+    
     // 3. LOKALNE KOLIZIJE (Ovo rade SVI klijenti da ne bi prolazili kroz zidove i protivnika)
-    handleRinkBoundaries(me, false);
+    if (other.x === 0 && other.y === 0) return;
     handleCollision(p1, p2); // OVO MORA DA BUDE OVDE (izvan isMaster)
+    handleRinkBoundaries(me, false);
 
     // 4. ŠUTIRANJE (Samo Master sme da menja brzinu paka direktno)
-    if (isMaster && (keys['x'] || keys[' '] || keys[32])) {
+    if (isMaster && (keys['x'] || keys[' '])) {
         let dxP = puck.x - me.x;
         let dyP = puck.y - me.y;
         let dist = Math.sqrt(dxP * dxP + dyP * dyP);
@@ -387,11 +388,11 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         handleCollision(p2, puck);
         handleRinkBoundaries(puck, true);
         
+        // Pomeri pak i pošalji svima
         puck.vx *= puck.friction;
         puck.vy *= puck.friction;
         puck.x += puck.vx;
         puck.y += puck.vy;
-        
         socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
     } else {
         // Nisi Master: Lerp (zaglađivanje) ka poziciji paka
@@ -419,18 +420,18 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     }
     // ----------------------------------
 
-    if (data.type === 'init-role') {
-        myRole = data.role;
+    else if (data.type === 'init-role') {
+    myRole = data.role;
+    // Ažuriraj SVE nadimke koje server pošalje
     if (data.allNicks) {
         playerNicks = data.allNicks; 
     }
-        if (typeof myPendingNick !== 'undefined') {
-            playerNicks[myRole] = myPendingNick;
-        }
-        document.getElementById("statusOverlay").innerText = (myRole === 'spectator') 
-            ? "Soba je puna." 
-            : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...`;
-    } 
+    // Ako si već poslao nick, osiguraj da je tu
+    if (typeof myPendingNick !== 'undefined') {
+        playerNicks[myRole] = myPendingNick;
+    }
+    document.getElementById("statusOverlay").innerText = `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}.`;
+}
     else if (data.type === 'start-game') {
         gameActive = true; 
         document.getElementById("statusOverlay").style.display = 'none';
