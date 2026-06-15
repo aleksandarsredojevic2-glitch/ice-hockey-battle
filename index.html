@@ -97,7 +97,9 @@
     
     <script>
         // 1. Definiši socket globalno
-const socket = new WebSocket('ws://' + window.location.hostname + ':3000');
+const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const host = window.location.host; 
+const socket = new WebSocket(`${protocol}://${host}`);
 
 // 2. Dodaj logove da vidimo šta se dešava
 socket.onopen = () => {
@@ -444,6 +446,14 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
     } 
+    // ... unutar socket.onmessage ...
+else if (data.type === 'init') {
+    isMaster = data.isMaster;
+    // AKO SI MASTER, odmah reci serveru gde je pak da bi se i drugi igrač sinhronizovao
+    if (isMaster) {
+        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
+    }
+}
     else if (data.type === 'sync-puck') {
         puck.x = data.x; puck.y = data.y; puck.vx = data.vx; puck.vy = data.vy;
     } 

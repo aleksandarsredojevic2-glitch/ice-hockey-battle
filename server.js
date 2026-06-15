@@ -108,7 +108,9 @@ if (masterId === info?.id && clients.size > 0) {
     });
 });
 
-const port = process.env.PORT || 3000;
+
+const port = process.env.PORT || 3000; 
+
 server.listen(port, '0.0.0.0', () => {
-    console.log(`Server radi na portu ${port}`);
+    console.log(`Server slusa na portu ${port}`);
 });
