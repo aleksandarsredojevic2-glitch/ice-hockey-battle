@@ -1,12 +1,24 @@
+const http = require('http');
 const WebSocket = require('ws');
-// Umesto fiksiranog porta, uzimamo onaj koji nam server dodeli (process.env.PORT)
-const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
-let players = {}; 
-let puck = { x: 1500, y: 750, vx: 0, vy: 0 };
-let chatLog = [];
+// 1. Kreiraj osnovni HTTP server (platforme ga zahtevaju za stabilnost)
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('IHB Ice Hockey Server je aktivan.');
+});
 
+// 2. Kreiraj WebSocket server VEZAN za taj HTTP server
+const wss = new WebSocket.Server({ server });
+
+// 3. Slušaj na portu koji platforma dodeli
+const port = process.env.PORT || 8080;
+server.listen(port, () => {
+    console.log(`Server slusa na portu ${port}`);
+});
+
+// Ostatak tvog koda ide ovde...
 wss.on('connection', (ws) => {
+
     let id = Math.random().toString(36).substr(2, 9);
     players[id] = { x: 500, y: 500, vx: 0, vy: 0, keys: {}, nick: "Nepoznat", role: 'p' + (Object.keys(players).length + 1) };
 

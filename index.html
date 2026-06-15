@@ -98,9 +98,12 @@
     <script>
         // 1. Definiši socket globalno
 // PROMENI OVO U TVOM index.html:
+// Ovo je tvoja prava adresa sa hostinga (nađi je u svom dashboard-u)
+const SERVER_URL = "tvoja-igra.onrender.com"; // BEZ https:// na početku
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const host = window.location.host; 
-const socket = new WebSocket(`${protocol}://${host}`);
+
+// Ako je tvoj sajt na drugom mestu, ovo će uvek gađati server
+const socket = new WebSocket(`${protocol}://${SERVER_URL}`);
 
 let gameState = { players: {}, puck: { x: 0, y: 0 } };
 
