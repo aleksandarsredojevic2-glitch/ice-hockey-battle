@@ -109,6 +109,12 @@ socket.onmessage = (event) => {
         gameState.players = data.players;
         gameState.puck = data.puck;
     }
+   if (data.type === 'chat') {
+    let msgElement = document.createElement('div');
+    msgElement.innerText = data.text;
+    chatBox.appendChild(msgElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
 };
 // 2. Dodaj logove da vidimo šta se dešava
 socket.onopen = () => {
