@@ -335,12 +335,13 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     }
 }
 
-        function update() {
+       function update() {
     if (document.activeElement === document.getElementById('chat-input')) return;
     if (!gameActive || myRole === 'spectator') return;
     
     let me = (myRole === 'p1') ? p1 : p2;
     let other = (myRole === 'p1') ? p2 : p1;
+    
     // 1. INPUT: Izračunaj kretanje
     let dx = 0; let dy = 0;
     if (keys['a'] || keys[37]) dx -= 1;
@@ -355,19 +356,20 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         me.vy += dy * me.speed;
     }
 
-    // 2. FIZIKA IGRAČA (Svi rade za sebe - trenje i kretanje)
+    // 2. FIZIKA IGRAČA
     me.vx *= me.friction;
     me.vy *= me.friction;
     me.x += me.vx;
     me.y += me.vy;
     
-    // 3. LOKALNE KOLIZIJE (Ovo rade SVI klijenti da ne bi prolazili kroz zidove i protivnika)
-    if (other.x === 0 && other.y === 0) return;
-    handleCollision(p1, p2); // OVO MORA DA BUDE OVDE (izvan isMaster)
+    // 3. LOKALNE KOLIZIJE
+    if (other.x !== 0 || other.y !== 0) {
+        handleCollision(p1, p2);
+    }
     handleRinkBoundaries(me, false);
 
-    // 4. ŠUTIRANJE (Samo Master sme da menja brzinu paka direktno)
-    if (isMaster && (keys['x'] || keys[' '])) {
+    // 4. ŠUTIRANJE (Svi mogu da šutiraju)
+    if (keys['x'] || keys[' ']) {
         let dxP = puck.x - me.x;
         let dyP = puck.y - me.y;
         let dist = Math.sqrt(dxP * dxP + dyP * dyP);
@@ -379,59 +381,56 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
             puck.vx = Math.cos(angle) * 14 * getSpecs().scale;
             puck.vy = Math.sin(angle) * 14 * getSpecs().scale;
             playSound(320, 'triangle', 0.1);
+            // Odmah pošalji svima da je pak šutnut
+            socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
         }
     }
 
-    // 5. FIZIKA PAKA (Master računa, ostali samo interpoliraju)
+    // 5. FIZIKA PAKA
+    handleCollision(p1, puck);
+    handleCollision(p2, puck);
+    handleRinkBoundaries(puck, true);
+    
     if (isMaster) {
-        handleCollision(p1, puck);
-        handleCollision(p2, puck);
-        handleRinkBoundaries(puck, true);
-        
-        // Pomeri pak i pošalji svima
         puck.vx *= puck.friction;
         puck.vy *= puck.friction;
         puck.x += puck.vx;
         puck.y += puck.vy;
-        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
+        // Master šalje poziciju i brzinu
+        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
     } else {
-        // Nisi Master: Lerp (zaglađivanje) ka poziciji paka
+        // Nisi Master: Lerp ka poziciji paka
         puck.x += (puckTarget.x - puck.x) * 0.3;
         puck.y += (puckTarget.y - puck.y) * 0.3;
     }
 
-    // 6. SLANJE PODATAKA (Svi šalju svoju poziciju)
+    // 6. SLANJE PODATAKA
     socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
 }
 
-        socket.onmessage = (event) => {
+socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
     
-    // --- INTEGRACIJA MASTER SISTEMA ---
     if (data.type === 'init') {
         isMaster = data.isMaster;
+        if (isMaster) {
+            socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
+        }
     }
     else if (data.type === 'puck-update') {
-        // Ako NISI Master, ažuriraj target poziciju za Lerp
         if (!isMaster) {
             puckTarget.x = data.x;
             puckTarget.y = data.y;
+            puck.vx = data.vx;
+            puck.vy = data.vy;
         }
     }
-    // ----------------------------------
-
     else if (data.type === 'init-role') {
-    myRole = data.role;
-    // Ažuriraj SVE nadimke koje server pošalje
-    if (data.allNicks) {
-        playerNicks = data.allNicks; 
-    }
-    // Ako si već poslao nick, osiguraj da je tu
-    if (typeof myPendingNick !== 'undefined') {
-        playerNicks[myRole] = myPendingNick;
-    }
-    document.getElementById("statusOverlay").innerText = `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}.`;
-}
+        myRole = data.role;
+        if (data.allNicks) playerNicks = data.allNicks; 
+        if (typeof myPendingNick !== 'undefined') playerNicks[myRole] = myPendingNick;
+        document.getElementById("statusOverlay").innerText = `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}.`;
+    } 
     else if (data.type === 'start-game') {
         gameActive = true; 
         document.getElementById("statusOverlay").style.display = 'none';
@@ -439,21 +438,10 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     else if (data.type === 'opponent-update') {
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
-        console.log("Ažuriram protivnika na:", data.x, data.y);
     } 
     else if (data.type === 'update-nick') {
         playerNicks[data.role] = data.nick;
-        console.log("Primljen nick za " + data.role + ": " + data.nick);
     } 
-    
-    // ... unutar socket.onmessage ...
-else if (data.type === 'init') {
-    isMaster = data.isMaster;
-    // AKO SI MASTER, odmah reci serveru gde je pak da bi se i drugi igrač sinhronizovao
-    if (isMaster) {
-        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
-    }
-}
     else if (data.type === 'sync-puck') {
         puck.x = data.x; puck.y = data.y; puck.vx = data.vx; puck.vy = data.vy;
     } 
@@ -468,13 +456,12 @@ else if (data.type === 'init') {
         document.getElementById("statusOverlay").style.display = 'block';
         document.getElementById("statusOverlay").innerText = "Protivnik je izašao.";
     } 
-    
- else if (data.type === 'chat-message') {
-    let div = document.createElement('div');
-    div.innerText = data.nick + ": " + data.text; // Prikaz: "Ime: Poruka"
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
+    else if (data.type === 'chat-message') {
+        let div = document.createElement('div');
+        div.innerText = data.nick + ": " + data.text;
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
 };
         function drawVectorField() {
             const s = getSpecs(); const g = s.goal;
