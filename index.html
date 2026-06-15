@@ -346,24 +346,23 @@ function joinGame() {
         return;
     }
 
-    // PROVERA: Ako socket nije spreman (state 0 je CONNECTING, 3 je CLOSED)
     if (socket.readyState !== WebSocket.OPEN) {
         alert("Server još uvek nije spreman. Sačekaj sekund-dva i pokušaj ponovo.");
         return;
     }
 
-    // Sačuvaj nadimak u globalnu promenljivu
-    window.myPendingNick = nick;
+    // 1. SAKRIJ SVE ŠTO SMETA
+    document.getElementById('login-screen').style.display = 'none';
+    
+    // OVO JE ONO ŠTO TI JE FALILO (pretpostavljam da se status zove statusOverlay)
+    const status = document.getElementById('statusOverlay');
+    if (status) status.style.display = 'none';
 
-    // 1. Pošalji nadimak serveru
+    // 2. POŠALJI PODATKE
     socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
     
-    // 2. Pošalji zahtev za ulazak u sobu sa malim razmakom
     setTimeout(() => {
         socket.send(JSON.stringify({ type: 'join-room', room: 'glavna' }));
-        
-        // 3. Sakrij login ekran tek kada pošaljemo oba zahteva
-        document.getElementById('login-screen').style.display = 'none';
     }, 50);
 }
         function gameLoop() {
