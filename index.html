@@ -374,8 +374,37 @@ function joinGame() {
     sendInput();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Uvek dohvati trenutne specifikacije za skaliranje
+    // 1. Dobijamo specifikacije (scale, left, top)
     const s = getSpecs(); 
+
+    // 2. Crtamo teren
+    drawVectorField();
+
+    // 3. Crtamo igrače
+    for (let id in gameState.players) {
+        let p = gameState.players[id];
+        
+        // Transformišemo server koordinate u ekranske
+        let drawP = {
+            ...p,
+            x: s.left + (p.x * s.scale),
+            y: s.top + (p.y * s.scale),
+            radius: p.radius * s.scale 
+        };
+        drawPlayer(drawP);
+    }
+
+    // 4. Crtamo pak
+    ctx.fillStyle = puck.color;
+    ctx.beginPath();
+    // I pak mora da prati istu skalu kao i teren
+    let puckX = s.left + (gameState.puck.x * s.scale);
+    let puckY = s.top + (gameState.puck.y * s.scale);
+    ctx.arc(puckX, puckY, 7 * s.scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    requestAnimationFrame(gameLoop);
+}
 
     drawVectorField();
 
