@@ -13,12 +13,6 @@ const wss = new WebSocket.Server({ server });
 let players = {};
 let puck = { x: 1500, y: 750, vx: 0, vy: 0 };
 
-// Eksplicitno hvatanje upgrade-a za WebSocket
-server.on('upgrade', (request, socket, head) => {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-    });
-});
 
 wss.on('connection', (ws) => {
     let id = Math.random().toString(36).substr(2, 9);
