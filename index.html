@@ -429,7 +429,7 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         }
         document.getElementById("statusOverlay").innerText = (myRole === 'spectator') 
             ? "Soba je puna." 
-            : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...
+            : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...`;
     } 
     else if (data.type === 'start-game') {
         gameActive = true; 
