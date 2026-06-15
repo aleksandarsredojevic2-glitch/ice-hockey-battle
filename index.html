@@ -343,90 +343,27 @@ let name = (p.role === 'p1') ? playerNicks.p1 : playerNicks.p2;
     
     ctx.fillText(name, p.x, p.y - p.radius - 15);
 }
-function joinGame() {
-    const nick = document.getElementById('nick-input').value.trim();
-    
-    if (nick === "") {
-        alert("Unesi nadimak!");
-        return;
-    }
-
-    if (socket.readyState !== WebSocket.OPEN) {
-        alert("Server još uvek nije spreman. Sačekaj sekund-dva i pokušaj ponovo.");
-        return;
-    }
-
-    // 1. SAKRIJ SVE ŠTO SMETA
-    document.getElementById('login-screen').style.display = 'none';
-    
-    // OVO JE ONO ŠTO TI JE FALILO (pretpostavljam da se status zove statusOverlay)
-    const status = document.getElementById('statusOverlay');
-    if (status) status.style.display = 'none';
-
-    // 2. POŠALJI PODATKE
-    socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
-    
-    setTimeout(() => {
-        socket.send(JSON.stringify({ type: 'join-room', room: 'glavna' }));
-    }, 50);
-}
-        function gameLoop() {
+function gameLoop() {
     sendInput();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 1. Dobijamo specifikacije (scale, left, top)
     const s = getSpecs(); 
-
-    // 2. Crtamo teren
     drawVectorField();
 
-    // 3. Crtamo igrače
     for (let id in gameState.players) {
         let p = gameState.players[id];
-        
-        // Transformišemo server koordinate u ekranske
-        let drawP = {
-            ...p,
-            x: s.left + (p.x * s.scale),
-            y: s.top + (p.y * s.scale),
-            radius: p.radius * s.scale 
-        };
-        drawPlayer(drawP);
-    }
-
-    // 4. Crtamo pak
-    ctx.fillStyle = puck.color;
-    ctx.beginPath();
-    // I pak mora da prati istu skalu kao i teren
-    let puckX = s.left + (gameState.puck.x * s.scale);
-    let puckY = s.top + (gameState.puck.y * s.scale);
-    ctx.arc(puckX, puckY, 7 * s.scale, 0, Math.PI * 2);
-    ctx.fill();
-
-    requestAnimationFrame(gameLoop);
-}
-
-    drawVectorField();
-
-    // 4. Crtaj igrače sa primenjenom skalom
-    for (let id in gameState.players) {
-        let p = gameState.players[id];
-        // Preračunaj koordinate da budu vidljive na ekranu
         let screenP = {
             ...p,
             x: s.left + (p.x * s.scale),
             y: s.top + (p.y * s.scale),
-            radius: p.radius * s.scale // Skaliraj i veličinu igrača!
+            radius: (p.radius || 18.2) * s.scale 
         };
         drawPlayer(screenP);
     }
 
-    // 5. Crtaj pak sa primenjenom skalom
     ctx.fillStyle = puck.color;
     ctx.beginPath();
-    let puckX = s.left + (gameState.puck.x * s.scale);
-    let puckY = s.top + (gameState.puck.y * s.scale);
-    ctx.arc(puckX, puckY, 7 * s.scale, 0, Math.PI * 2);
+    ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
     ctx.fill();
 
     requestAnimationFrame(gameLoop);
