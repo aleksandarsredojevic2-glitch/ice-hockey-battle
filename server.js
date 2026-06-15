@@ -9,6 +9,13 @@ const server = http.createServer((req, res) => {
 
 // 2. Kreiraj WebSocket server VEZAN za taj HTTP server
 const wss = new WebSocket.Server({ server });
+let players = {};
+let puck = { x: 1500, y: 750, vx: 0, vy: 0 };
+server.on('upgrade', (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+    });
+});
 
 // 3. Slušaj na portu koji platforma dodeli
 const port = process.env.PORT || 8080;
