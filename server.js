@@ -75,13 +75,15 @@ wss.on('connection', (ws) => {
             });
         }
         
-        // 5. Ostale poruke (chat, golovi...)
-        else {
-            wss.clients.forEach(client => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(message.toString());
-                }
-            });
+        // ISPRAVLJEN KOD ZA CHAT U server.js:
+else if (data.type === 'chat-message') {
+    // Šaljemo SVIMA, bez 'if (client !== ws)'
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(message.toString());
+        }
+    });
+}
         }
     });
 

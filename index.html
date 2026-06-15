@@ -445,6 +445,7 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     else if (data.type === 'opponent-update') {
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
+        console.log("Ažuriram protivnika na:", data.x, data.y);
     } 
     // ... unutar socket.onmessage ...
 else if (data.type === 'init') {
