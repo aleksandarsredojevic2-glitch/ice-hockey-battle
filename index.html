@@ -427,6 +427,9 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
 
     if (data.type === 'init-role') {
         myRole = data.role;
+    if (data.allNicks) {
+        playerNicks = data.allNicks; 
+    }
         if (typeof myPendingNick !== 'undefined') {
             playerNicks[myRole] = myPendingNick;
         }

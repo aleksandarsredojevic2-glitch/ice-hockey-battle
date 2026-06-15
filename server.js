@@ -36,13 +36,27 @@ wss.on('connection', (ws) => {
             const info = clients.get(ws);
             info.role = assignedRole;
             clients.set(ws, info);
-            ws.send(JSON.stringify({ type: 'init-role', role: assignedRole }));
-        // OVO TI JE FALILO: Provera da li su obojica tu
+            
+            // Pripremi listu svih nadimaka koji su trenutno u igri
+            const allNicks = {};
+            clients.forEach(c => {
+                if (c.role === 'p1' || c.role === 'p2') {
+                    allNicks[c.role] = c.nick;
+                }
+            });
+
+            // Šaljemo ulogu I sve trenutne nadimke klijentu
+            ws.send(JSON.stringify({ 
+                type: 'init-role', 
+                role: assignedRole, 
+                allNicks: allNicks 
+            }));
+
+            // Pokretanje igre ako su oba igrača tu
             if (players.p1 && players.p2) {
-                console.log("Oba igrača su povezana, pokrećem igru!"); // Korisno za debug
                 players.p1.send(JSON.stringify({ type: 'start-game' }));
                 players.p2.send(JSON.stringify({ type: 'start-game' }));
-   }
+            }
         }
         else if (data.type === 'player-update') {
             const senderInfo = clients.get(ws);
