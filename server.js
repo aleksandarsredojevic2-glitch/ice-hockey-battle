@@ -6,8 +6,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const clients = new Map(); // Mapa: ws -> { id, nick, role }
-let players = { p1: null, p2: null }; // Čuva WebSocket objekte za igrače
+const clients = new Map(); 
+let players = { p1: null, p2: null }; 
 let masterId = null; 
 
 app.use(express.static(__dirname));
@@ -16,7 +16,6 @@ wss.on('connection', (ws) => {
     const id = Math.random().toString(36).substr(2, 9);
     clients.set(ws, { id: id, nick: 'Anonimus', role: 'spectator' });
 
-    // Ako je ovo prvi igrač, postaje Master paka
     if (clients.size === 1) masterId = id;
     ws.send(JSON.stringify({ type: 'init', id: id, isMaster: (id === masterId) }));
 
@@ -24,52 +23,29 @@ wss.on('connection', (ws) => {
         let data;
         try { data = JSON.parse(message); } catch (e) { return; }
 
-        // 1. Postavljanje nadimka
         if (data.type === 'set-nick') {
             const info = clients.get(ws);
             info.nick = data.nick;
             clients.set(ws, info);
         }
-        
-        // 2. Ulazak u igru (Dodeljivanje uloge p1/p2)
         else if (data.type === 'join-room') {
             let assignedRole = 'spectator';
-            
-            if (!players.p1) {
-                players.p1 = ws;
-                assignedRole = 'p1';
-            } else if (!players.p2) {
-                players.p2 = ws;
-                assignedRole = 'p2';
-            }
+            if (!players.p1) { players.p1 = ws; assignedRole = 'p1'; } 
+            else if (!players.p2) { players.p2 = ws; assignedRole = 'p2'; }
             
             const info = clients.get(ws);
             info.role = assignedRole;
             clients.set(ws, info);
-
             ws.send(JSON.stringify({ type: 'init-role', role: assignedRole }));
-
-            if (players.p1 && players.p2) {
-                players.p1.send(JSON.stringify({ type: 'start-game' }));
-                players.p2.send(JSON.stringify({ type: 'start-game' }));
-            }
         }
-        
-        // 3. Update pozicija igrača (Šaljemo i rolu da klijent zna koga pomera)
         else if (data.type === 'player-update') {
             const senderInfo = clients.get(ws);
             wss.clients.forEach(client => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ 
-                        type: 'opponent-update', 
-                        role: senderInfo.role, 
-                        ...data 
-                    }));
+                    client.send(JSON.stringify({ type: 'opponent-update', role: senderInfo.role, ...data }));
                 }
             });
         }
-        
-        // 4. Update paka (samo Master)
         else if (data.type === 'puck-update') {
             wss.clients.forEach(client => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
@@ -77,28 +53,21 @@ wss.on('connection', (ws) => {
                 }
             });
         }
-        
         else if (data.type === 'chat-message') {
-    const senderInfo = clients.get(ws); // Uzmi podatke o onome ko šalje
-    const nick = senderInfo ? senderInfo.nick : "Anonimus";
-    
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            // Šaljemo i nick i text
-            client.send(JSON.stringify({ 
-                type: 'chat-message', 
-                nick: nick, 
-                text: data.text 
-            }));
+            const senderInfo = clients.get(ws);
+            const nick = senderInfo ? senderInfo.nick : "Anonimus";
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'chat-message', nick: nick, text: data.text }));
+                }
+            });
         }
-    });
-}
+    }); // OVO ZATVARA ws.on('message')
 
     ws.on('close', () => {
         const info = clients.get(ws);
         if (info && info.role === 'p1') players.p1 = null;
         if (info && info.role === 'p2') players.p2 = null;
-        
         clients.delete(ws);
         
         wss.clients.forEach(client => {
@@ -115,7 +84,6 @@ wss.on('connection', (ws) => {
 });
 
 const port = process.env.PORT || 3000; 
-
 server.listen(port, '0.0.0.0', () => {
     console.log(`Server slusa na portu ${port}`);
 });
