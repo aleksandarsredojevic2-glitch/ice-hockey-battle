@@ -47,21 +47,24 @@ wss.on('connection', (ws) => {
             info.role = assignedRole;
             clients.set(ws, info);
 
-            // Odgovori klijentu sa dodeljenom ulogom
             ws.send(JSON.stringify({ type: 'init-role', role: assignedRole }));
 
-            // Ako su oba igrača tu, pokreni igru
             if (players.p1 && players.p2) {
                 players.p1.send(JSON.stringify({ type: 'start-game' }));
                 players.p2.send(JSON.stringify({ type: 'start-game' }));
             }
         }
         
-        // 3. Update pozicija igrača
+        // 3. Update pozicija igrača (Šaljemo i rolu da klijent zna koga pomera)
         else if (data.type === 'player-update') {
+            const senderInfo = clients.get(ws);
             wss.clients.forEach(client => {
                 if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'opponent-update', ...data }));
+                    client.send(JSON.stringify({ 
+                        type: 'opponent-update', 
+                        role: senderInfo.role, 
+                        ...data 
+                    }));
                 }
             });
         }
@@ -75,15 +78,13 @@ wss.on('connection', (ws) => {
             });
         }
         
-        // ISPRAVLJEN KOD ZA CHAT U server.js:
-else if (data.type === 'chat-message') {
-    // Šaljemo SVIMA, bez 'if (client !== ws)'
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(message.toString());
-        }
-    });
-}
+        // 5. Chat message (svi vide)
+        else if (data.type === 'chat-message') {
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(message.toString());
+                }
+            });
         }
     });
 
@@ -94,22 +95,18 @@ else if (data.type === 'chat-message') {
         
         clients.delete(ws);
         
-        // Obavesti ostale da je neko izašao
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ type: 'player-left' }));
             }
         });
 
-        // Reizbor Mastera ako je trenutni izašao
-        // Pronađi prvi aktivni WebSocket objekat i izvuci njegov ID iz mape
-if (masterId === info?.id && clients.size > 0) {
-    const firstClientWs = clients.keys().next().value;
-    masterId = clients.get(firstClientWs).id;
-}
+        if (masterId === info?.id && clients.size > 0) {
+            const firstClientWs = clients.keys().next().value;
+            masterId = clients.get(firstClientWs).id;
+        }
     });
 });
-
 
 const port = process.env.PORT || 3000; 
 
