@@ -445,6 +445,7 @@ socket.onmessage = (event) => {
     } 
     else if (data.type === 'puck-hit') {
     if (isMaster) {
+        console.log("Master primio udarac, primenjujem fiziku...");
         puck.vx = Math.cos(data.angle) * data.force;
         puck.vy = Math.sin(data.angle) * data.force;
     }
