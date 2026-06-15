@@ -418,14 +418,12 @@ socket.onmessage = (event) => {
             socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
         }
     }
-    else if (data.type === 'puck-update') {
-        if (!isMaster) {
+    else if (data.type === 'puck-update' || data.type === 'puck-sync') {
             puckTarget.x = data.x;
             puckTarget.y = data.y;
             puck.vx = data.vx;
             puck.vy = data.vy;
         }
-    }
     else if (data.type === 'init-role') {
         myRole = data.role;
         if (data.allNicks) playerNicks = data.allNicks; 
