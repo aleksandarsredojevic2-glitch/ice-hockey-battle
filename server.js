@@ -66,13 +66,22 @@ wss.on('connection', (ws) => {
                 }
             });
         }
-        else if (data.type === 'puck-update') {
+        else if (data.type === 'puck-update' || data.type === 'puck-hit') {
+            // PROMENA: Šaljemo SVIMA, uključujući i pošiljaoca 
+            // (ili samo Masteru, ali slanje svima je sigurnije za sinhronizaciju)
             wss.clients.forEach(client => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                if (client.readyState === WebSocket.OPEN) {
                     client.send(message.toString());
                 }
             });
         }
+        else if (data.type === 'puck-hit') {
+        if (isMaster) {
+            console.log("Master primio udarac, primenjujem fiziku...");
+            puck.vx = Math.cos(data.angle) * data.force;
+            puck.vy = Math.sin(data.angle) * data.force;
+        }
+    }
         else if (data.type === 'chat-message') {
             const senderInfo = clients.get(ws);
             const nick = senderInfo ? senderInfo.nick : "Anonimus";
