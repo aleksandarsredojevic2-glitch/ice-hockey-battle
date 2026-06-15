@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 8080 });
+// Umesto fiksiranog porta, uzimamo onaj koji nam server dodeli (process.env.PORT)
+const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
 
 let players = {}; 
 let puck = { x: 1500, y: 750, vx: 0, vy: 0 };
