@@ -398,12 +398,10 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     }
 
     // 4. TRENJE I POZICIJA IGRAČA (Svi rade za sebe)
-    [p1, p2].forEach(obj => {
-        obj.vx *= obj.friction;
-        obj.vy *= obj.friction;
-        obj.x += obj.vx;
-        obj.y += obj.vy;
-    });
+    me.vx *= me.friction;
+    me.vy *= me.friction;
+    me.x += me.vx;
+    me.y += me.vy;
 
     // 5. SLANJE PODATAKA
     socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
