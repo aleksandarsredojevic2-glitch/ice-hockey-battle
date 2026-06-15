@@ -438,15 +438,16 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         gameActive = true; 
         document.getElementById("statusOverlay").style.display = 'none';
     } 
-    else if (data.type === 'update-nick') {
-        playerNicks[data.role] = data.nick;
-        console.log("Primljen nick za " + data.role + ": " + data.nick);
-    } 
     else if (data.type === 'opponent-update') {
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
         console.log("Ažuriram protivnika na:", data.x, data.y);
     } 
+    else if (data.type === 'update-nick') {
+        playerNicks[data.role] = data.nick;
+        console.log("Primljen nick za " + data.role + ": " + data.nick);
+    } 
+    
     // ... unutar socket.onmessage ...
 else if (data.type === 'init') {
     isMaster = data.isMaster;

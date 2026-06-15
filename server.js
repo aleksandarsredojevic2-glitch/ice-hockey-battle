@@ -37,6 +37,12 @@ wss.on('connection', (ws) => {
             info.role = assignedRole;
             clients.set(ws, info);
             ws.send(JSON.stringify({ type: 'init-role', role: assignedRole }));
+        // OVO TI JE FALILO: Provera da li su obojica tu
+            if (players.p1 && players.p2) {
+                console.log("Oba igrača su povezana, pokrećem igru!"); // Korisno za debug
+                players.p1.send(JSON.stringify({ type: 'start-game' }));
+                players.p2.send(JSON.stringify({ type: 'start-game' }));
+   }
         }
         else if (data.type === 'player-update') {
             const senderInfo = clients.get(ws);
