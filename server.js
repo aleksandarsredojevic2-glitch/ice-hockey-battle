@@ -44,7 +44,7 @@ setInterval(() => {
     puck.vx *= 0.979; puck.vy *= 0.979;
     puck.x += puck.vx; puck.y += puck.vy;
 
-    // 3. Slanje stanja SVIM klijentima
+    // 3. Slanje stanja klijentima
     let state = JSON.stringify({ type: 'state', players, puck });
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) client.send(state);
