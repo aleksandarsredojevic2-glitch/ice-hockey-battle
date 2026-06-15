@@ -400,9 +400,15 @@ if (isMaster) {
     puck.y += puck.vy;
     socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
 } else {
-    // Lerp ostaje, ali samo za poziciju
-    puck.x += (puckTarget.x - puck.x) * 0.3;
-    puck.y += (puckTarget.y - puck.y) * 0.3;
+    // Lokalna kolizija za Plavog (da ne prolazi kroz pak)
+    handleCollision(p2, puck);
+    
+    // Lerp samo ako pak nije blizu igrača (da ne "otimamo" pak od fizike)
+    let distToTarget = Math.sqrt((puckTarget.x - puck.x)**2 + (puckTarget.y - puck.y)**2);
+    if (distToTarget > 2) { 
+        puck.x += (puckTarget.x - puck.x) * 0.4;
+        puck.y += (puckTarget.y - puck.y) * 0.4;
+    }
 }
 
     // 6. SLANJE PODATAKA
@@ -418,12 +424,15 @@ socket.onmessage = (event) => {
             socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
         }
     }
-    else if (data.type === 'puck-update' || data.type === 'puck-sync') {
-            puckTarget.x = data.x;
-            puckTarget.y = data.y;
-            puck.vx = data.vx;
-            puck.vy = data.vy;
-        }
+    else if (data.type === 'puck-update') {
+    if (!isMaster) {
+        // Ažuriraj target, ali ne menjaj direktno puck.x ako smo ga baš šutnuli
+        puckTarget.x = data.x;
+        puckTarget.y = data.y;
+        puck.vx = data.vx;
+        puck.vy = data.vy;
+    }
+}
     else if (data.type === 'init-role') {
         myRole = data.role;
         if (data.allNicks) playerNicks = data.allNicks; 
