@@ -113,7 +113,7 @@ socket.onmessage = (event) => {
     if (data.type === 'state') {
         gameState.players = data.players;
         gameState.puck = data.puck;
-        console.log("Igrači sa servera:", Object.keys(data.players).length);
+        gameActive = true;
     }
    if (data.type === 'chat') {
     let msgElement = document.createElement('div');
