@@ -355,7 +355,17 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         me.vy += dy * me.speed;
     }
 
-    // 2. ŠUTIRANJE (Samo Master sme da menja brzinu paka direktno)
+    // 2. FIZIKA IGRAČA (Svi rade za sebe - trenje i kretanje)
+    me.vx *= me.friction;
+    me.vy *= me.friction;
+    me.x += me.vx;
+    me.y += me.vy;
+
+    // 3. LOKALNE KOLIZIJE (Ovo rade SVI klijenti da ne bi prolazili kroz zidove i protivnika)
+    handleRinkBoundaries(me, false);
+    handleCollision(p1, p2); // OVO MORA DA BUDE OVDE (izvan isMaster)
+
+    // 4. ŠUTIRANJE (Samo Master sme da menja brzinu paka direktno)
     if (isMaster && (keys['x'] || keys[' '] || keys[32])) {
         let dxP = puck.x - me.x;
         let dyP = puck.y - me.y;
@@ -371,39 +381,25 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         }
     }
 
-    // 3. KOLIZIJE I FIZIKA PAKA
+    // 5. FIZIKA PAKA (Master računa, ostali samo interpoliraju)
     if (isMaster) {
         handleCollision(p1, puck);
         handleCollision(p2, puck);
-        handleCollision(p1, p2);
-        handleRinkBoundaries(p1, false);
-        handleRinkBoundaries(p2, false);
         handleRinkBoundaries(puck, true);
         
-        // Master računa kretanje paka
         puck.vx *= puck.friction;
         puck.vy *= puck.friction;
         puck.x += puck.vx;
         puck.y += puck.vy;
         
-        // Šalje ažuriranu poziciju paka svima
         socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
     } else {
-        // Nisi Master: samo Lerp-uj pak ka Masterovoj poziciji
+        // Nisi Master: Lerp (zaglađivanje) ka poziciji paka
         puck.x += (puckTarget.x - puck.x) * 0.3;
         puck.y += (puckTarget.y - puck.y) * 0.3;
-        
-        // Igrači i dalje rešavaju sopstvene kolizije sa zidovima
-        handleRinkBoundaries(me, false);
     }
 
-    // 4. TRENJE I POZICIJA IGRAČA (Svi rade za sebe)
-    me.vx *= me.friction;
-    me.vy *= me.friction;
-    me.x += me.vx;
-    me.y += me.vy;
-
-    // 5. SLANJE PODATAKA
+    // 6. SLANJE PODATAKA (Svi šalju svoju poziciju)
     socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
 }
 
@@ -433,7 +429,7 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         }
         document.getElementById("statusOverlay").innerText = (myRole === 'spectator') 
             ? "Soba je puna." 
-            : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...`;
+            : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...
     } 
     else if (data.type === 'start-game') {
         gameActive = true; 
