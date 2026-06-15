@@ -1,27 +1,27 @@
 const http = require('http');
 const WebSocket = require('ws');
 
-// 1. Kreiraj osnovni HTTP server (platforme ga zahtevaju za stabilnost)
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('IHB Ice Hockey Server je aktivan.');
-});
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const path = require('path');
 
-// 2. Kreiraj WebSocket server VEZAN za taj HTTP server
+const app = express();
+const server = http.createServer(app);
+
+// 1. Serviraj sve fajlove iz foldera gde je server (tu ti je i index.html)
+app.use(express.static(__dirname));
+
+// 2. WebSocket server vezan za isti HTTP server
 const wss = new WebSocket.Server({ server });
-let players = {};
-let puck = { x: 1500, y: 750, vx: 0, vy: 0 };
-server.on('upgrade', (request, socket, head) => {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-    });
-});
 
-// 3. Slušaj na portu koji platforma dodeli
+// 3. Slušaj port
 const port = process.env.PORT || 8080;
 server.listen(port, () => {
-    console.log(`Server slusa na portu ${port}`);
+    console.log(`Server radi na portu ${port}`);
 });
+
+// Ostatak tvog wss koda ostaje isti...
 
 // Ostatak tvog koda ide ovde...
 wss.on('connection', (ws) => {
