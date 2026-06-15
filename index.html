@@ -102,8 +102,9 @@
 const SERVER_URL = "tvoja-igra.onrender.com"; // BEZ https:// na početku
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 
-// Ako je tvoj sajt na drugom mestu, ovo će uvek gađati server
-const socket = new WebSocket(`${protocol}://${SERVER_URL}`);
+// Ako ti je sajt npr. https://igra.onrender.com
+// WebSocket mora da gađa taj isti host/port
+const socket = new WebSocket('wss://' + window.location.host);
 
 let gameState = { players: {}, puck: { x: 0, y: 0 } };
 
