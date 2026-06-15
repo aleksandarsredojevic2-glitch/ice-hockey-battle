@@ -469,12 +469,13 @@ else if (data.type === 'init') {
         document.getElementById("statusOverlay").style.display = 'block';
         document.getElementById("statusOverlay").innerText = "Protivnik je izašao.";
     } 
-    else if (data.type === 'chat-message') {
-        let div = document.createElement('div');
-        div.innerText = data.text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
+    
+ else if (data.type === 'chat-message') {
+    let div = document.createElement('div');
+    div.innerText = data.nick + ": " + data.text; // Prikaz: "Ime: Poruka"
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
 };
         function drawVectorField() {
             const s = getSpecs(); const g = s.goal;

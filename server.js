@@ -78,15 +78,21 @@ wss.on('connection', (ws) => {
             });
         }
         
-        // 5. Chat message (svi vide)
         else if (data.type === 'chat-message') {
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(message.toString());
-                }
-            });
+    const senderInfo = clients.get(ws); // Uzmi podatke o onome ko šalje
+    const nick = senderInfo ? senderInfo.nick : "Anonimus";
+    
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            // Šaljemo i nick i text
+            client.send(JSON.stringify({ 
+                type: 'chat-message', 
+                nick: nick, 
+                text: data.text 
+            }));
         }
     });
+}
 
     ws.on('close', () => {
         const info = clients.get(ws);
