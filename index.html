@@ -97,6 +97,7 @@
     
     <script>
         // 1. Definiši socket globalno
+// PROMENI OVO U TVOM index.html:
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const host = window.location.host; 
 const socket = new WebSocket(`${protocol}://${host}`);
