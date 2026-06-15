@@ -101,6 +101,15 @@ const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const host = window.location.host; 
 const socket = new WebSocket(`${protocol}://${host}`);
 
+let gameState = { players: {}, puck: { x: 0, y: 0 } };
+
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'state') {
+        gameState.players = data.players;
+        gameState.puck = data.puck;
+    }
+};
 // 2. Dodaj logove da vidimo šta se dešava
 socket.onopen = () => {
     console.log("Konekcija otvorena!");
@@ -209,7 +218,12 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
                 osc.start(); osc.stop(context.currentTime + duration);
             } catch(e) {}
         }
-  
+        function sendInput() {
+    socket.send(JSON.stringify({ 
+        type: 'input', 
+        keys: keys // keys je tvoj objekat sa tasterima {'w': true, 'a': false, ...}
+    }));
+}
         function drawVectorField() {
             const s = getSpecs(); const g = s.goal;
             
@@ -342,20 +356,26 @@ function joinGame() {
     }, 50);
 }
         function gameLoop() {
-    // 1. Šalji serveru šta pritiskaš (input)
-    socket.send(JSON.stringify({ type: 'input', keys: keys }));
+    // 1. Šalji input
+    sendInput();
 
-    // 2. Crtaj ono što ti server pošalje (iz 'state' objekta)
+    // 2. Očisti ekran
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Ovde samo prolaziš kroz 'players' objekat koji ti stiže sa servera
-    // i crtaš svakog igrača na poziciji koju ti je server dao
-    drawWorld(); 
-    for (let id in serverState.players) {
-        let p = serverState.players[id];
-        drawPlayer(p);
+
+    // 3. Crtaj teren
+    drawVectorField();
+
+    // 4. Crtaj sve igrače koje ti je server poslao
+    for (let id in gameState.players) {
+        let p = gameState.players[id];
+        drawPlayer(p); // Koristiš svoju funkciju za crtanje, samo joj prosledi podatke sa servera
     }
-    drawPuck(serverState.puck);
+
+    // 5. Crtaj pak
+    ctx.fillStyle = puck.color;
+    ctx.beginPath();
+    ctx.arc(gameState.puck.x, gameState.puck.y, 7, 0, Math.PI * 2);
+    ctx.fill();
 
     requestAnimationFrame(gameLoop);
 }
