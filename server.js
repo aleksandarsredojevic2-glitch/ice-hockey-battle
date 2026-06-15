@@ -26,7 +26,7 @@ wss.on('connection', (ws) => {
     ws.on('close', () => delete players[id]);
 });
 
-// Game Loop - Server kao sudija (60 FPS)
+
 setInterval(() => {
     // 1. Fizika igrača
     for (let id in players) {
