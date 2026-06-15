@@ -368,41 +368,42 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
     }
     handleRinkBoundaries(me, false);
 
-    // 4. ŠUTIRANJE (Svi mogu da šutiraju)
-    if (keys['x'] || keys[' ']) {
-        let dxP = puck.x - me.x;
-        let dyP = puck.y - me.y;
-        let dist = Math.sqrt(dxP * dxP + dyP * dyP);
+    // 4. ŠUTIRANJE - IZMENA:
+// Ako si Plavi, ne menjaj puck.vx direktno, nego pošalji "udarac" Masteru
+if (keys['x'] || keys[' ']) {
+    let dxP = puck.x - me.x;
+    let dyP = puck.y - me.y;
+    let dist = Math.sqrt(dxP * dxP + dyP * dyP);
 
-        if (dist < me.radius + puck.radius + 18 * getSpecs().scale) {
-            let angle = Math.atan2(dyP, dxP);
-            let snap = Math.PI / 4;
-            angle = Math.round(angle / snap) * snap;
-            puck.vx = Math.cos(angle) * 14 * getSpecs().scale;
-            puck.vy = Math.sin(angle) * 14 * getSpecs().scale;
-            playSound(320, 'triangle', 0.1);
-            // Odmah pošalji svima da je pak šutnut
-            socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
-        }
+    if (dist < me.radius + puck.radius + 18 * getSpecs().scale) {
+        let angle = Math.atan2(dyP, dxP);
+        // Šalji "udarac" Masteru
+        socket.send(JSON.stringify({ 
+            type: 'puck-hit', 
+            angle: angle, 
+            force: 14 * getSpecs().scale 
+        }));
+        playSound(320, 'triangle', 0.1);
     }
+}
 
-    // 5. FIZIKA PAKA
+// 5. FIZIKA PAKA - IZMENA:
+// Samo Master radi handleCollision i pomera pak.
+if (isMaster) {
     handleCollision(p1, puck);
     handleCollision(p2, puck);
     handleRinkBoundaries(puck, true);
     
-    if (isMaster) {
-        puck.vx *= puck.friction;
-        puck.vy *= puck.friction;
-        puck.x += puck.vx;
-        puck.y += puck.vy;
-        // Master šalje poziciju i brzinu
-        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
-    } else {
-        // Nisi Master: Lerp ka poziciji paka
-        puck.x += (puckTarget.x - puck.x) * 0.3;
-        puck.y += (puckTarget.y - puck.y) * 0.3;
-    }
+    puck.vx *= puck.friction;
+    puck.vy *= puck.friction;
+    puck.x += puck.vx;
+    puck.y += puck.vy;
+    socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }));
+} else {
+    // Lerp ostaje, ali samo za poziciju
+    puck.x += (puckTarget.x - puck.x) * 0.3;
+    puck.y += (puckTarget.y - puck.y) * 0.3;
+}
 
     // 6. SLANJE PODATAKA
     socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
@@ -435,6 +436,12 @@ socket.onmessage = (event) => {
         gameActive = true; 
         document.getElementById("statusOverlay").style.display = 'none';
     } 
+    else if (data.type === 'puck-hit') {
+    if (isMaster) {
+        puck.vx = Math.cos(data.angle) * data.force;
+        puck.vy = Math.sin(data.angle) * data.force;
+    }
+}
     else if (data.type === 'opponent-update') {
         let opponent = (myRole === 'p1') ? p2 : p1;
         opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
