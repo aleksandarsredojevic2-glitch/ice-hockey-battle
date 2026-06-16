@@ -98,6 +98,10 @@
     <script>
     // 1. SVE GLOBALNE DEFINICIJE NA JEDNOM MESTU (SAMO OVO)
     const socket = new WebSocket('wss://' + window.location.host);
+    socket.onopen = () => {
+    console.log("Konekcija uspostavljena!");
+    document.getElementById("statusOverlay").style.display = "none";
+};
     const chatBox = document.getElementById('chat-box');
     const chatInput = document.getElementById('chat-input');
     const canvas = document.getElementById("hockeyCanvas");
@@ -224,7 +228,8 @@ function drawVectorField() {
     ctx.beginPath(); ctx.arc(s.left + s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI, Math.PI * 1.5); ctx.lineTo(s.right - s.cornerRadius, s.top); ctx.arc(s.right - s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI * 1.5, 0); ctx.lineTo(s.right, s.bottom - s.cornerRadius); ctx.arc(s.right - s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, 0, Math.PI * 0.5); ctx.lineTo(s.left + s.cornerRadius, s.bottom); ctx.arc(s.left + s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, Math.PI * 0.5, Math.PI); ctx.closePath(); ctx.stroke();
 }
 
-function drawPlayer(p) {
+// Izmenjena funkcija za crtanje igrača
+function drawPlayer(p, scale) {
     ctx.save(); 
     ctx.shadowBlur = 15; 
     ctx.shadowColor = p.color; 
@@ -234,41 +239,53 @@ function drawPlayer(p) {
     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); 
     ctx.fill();
     ctx.strokeStyle = "#ffffff"; 
-    ctx.lineWidth = 3 * getSpecs().scale; 
+    ctx.lineWidth = 3 * scale; 
     ctx.stroke(); 
     ctx.restore(); 
     
-    ctx.fillStyle = "#1a3a5a";
-    ctx.font = `bold ${Math.floor(16 * getSpecs().scale)}px Arial`;
+    ctx.fillStyle = "#ffffff"; // Promenio sam u belo da se vidi na pozadini
+    ctx.font = `bold ${Math.floor(16 * scale)}px Arial`;
     ctx.textAlign = "center";
     
-    let name = (p.role === 'p1') ? playerNicks.p1 : playerNicks.p2;
+    // Provera da li igrač ima nick
+    let name = gameState.players[p.id]?.nick || "Igrač";
     ctx.fillText(name, p.x, p.y - p.radius - 15);
 }
 
 function gameLoop() {
-    sendInput();
+    // 1. Šalji input
+    try { sendInput(); } catch(e) {}
+
+    // 2. Očisti canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const s = getSpecs();
-    // 1. Nacrtaj teren
+    
+    // 3. Uzmi koordinate terena
+    const s = getSpecs(); 
+
+    // 4. Crtaj teren
     drawVectorField();
 
-    // 2. Nacrtaj igrače
-    if (gameState.players) {
-        for (let id in gameState.players) {
-            let p = gameState.players[id];
-            // Provera da li su koordinate validne
-            if (p.x !== undefined && p.y !== undefined) {
-                let screenP = {
-                    ...p,
-                    x: s.left + (p.x * s.scale),
-                    y: s.top + (p.y * s.scale),
-                    radius: 18.2 * s.scale 
-                };
-                drawPlayer(screenP);
-            }
-        }
+    // 5. Crtaj igrače
+    for (let id in gameState.players) {
+        let p = gameState.players[id];
+        let screenP = {
+            ...p,
+            id: id, // prosleđujemo ID za nick
+            x: s.left + (p.x * s.scale),
+            y: s.top + (p.y * s.scale),
+            radius: 18.2 * s.scale 
+        };
+        drawPlayer(screenP, s.scale);
     }
+
+    // 6. Crtaj pak
+    ctx.fillStyle = puck.color;
+    ctx.beginPath();
+    ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    requestAnimationFrame(gameLoop);
+}
 
     // 3. Nacrtaj pak
     if (gameState.puck) {
@@ -304,10 +321,12 @@ function playSound(freq, type, duration) {
 }
 
 function sendInput() {
-    socket.send(JSON.stringify({ 
-        type: 'input', 
-        keys: keys 
-    }));
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ 
+            type: 'input', 
+            keys: keys 
+        }));
+    }
 }
 
     // 3. EVENT LISTENERI I POKRETANJE
