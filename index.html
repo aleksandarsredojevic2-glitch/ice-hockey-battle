@@ -11,6 +11,8 @@ const socket = new WebSocket(`${protocol}://${window.location.host}`);
 
 const WORLD_WIDTH = 3000;
 const WORLD_HEIGHT = 1500;
+const ICE_WIDTH = 2600;  // Primer vrednosti
+const ICE_HEIGHT = 1200; // Primer vrednosti
 const canvas = document.getElementById("hockeyCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -210,6 +212,7 @@ let name = (p.role === 'p1') ? playerNicks.p1 : playerNicks.p2;
     
     ctx.fillText(name, p.x, p.y - p.radius - 15);
 }
+let iceScratches = []; // Možeš ostaviti prazno ili generisati nasumične linije
 function drawVectorField() {
             const s = getSpecs(); const g = s.goal;
             
@@ -292,17 +295,18 @@ socket.onmessage = (event) => {
 
     if (data.type === 'init') {
         myPlayer.id = data.id;
+        gameActive = true; // AKTIVIRAŠ IGRU
+        gameLoop();        // POKREĆEŠ PETLJU PRVI PUT
+        console.log("Igra startovana!");
     } else if (data.type === 'player-update') {
         let p = players.find(pl => pl.id === data.senderId);
         if (p) {
             p.x = data.x; p.y = data.y;
             p.vx = data.vx; p.vy = data.vy;
         } else {
-            // Dodaj novog igrača ako ne postoji
-            players.push({ id: data.senderId, x: data.x, y: data.y, radius: 16, color: '#3333ff', role: data.role || 'guest' });
+            players.push({ id: data.senderId, x: data.x, y: data.y, radius: 16, color: '#3333ff' });
         }
     } else if (data.type === 'player-disconnected') {
-        // OVO JE KLJUČNO: Uklanja igrača iz niza
         players = players.filter(pl => pl.id !== data.senderId);
     }
 };
