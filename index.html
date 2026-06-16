@@ -5,6 +5,7 @@
     <title>IHB Ice Hockey 5v5</title>
     </head>
 <body>
+<canvas id="hockeyCanvas"></canvas>
 <script>
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const socket = new WebSocket(`${protocol}://${window.location.host}`);
