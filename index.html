@@ -29,21 +29,25 @@
 
         // --- INICIJALIZACIJA ---
         window.onload = () => {
-            canvas = document.getElementById("hockeyCanvas");
-            ctx = canvas.getContext("2d");
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            
-            window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; keys[e.keyCode] = true; });
-            window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; keys[e.keyCode] = false; });
+    canvas = document.getElementById("hockeyCanvas");
+    ctx = canvas.getContext("2d");
+    resizeCanvas();
+    
+    // 1. PITAJ ZA NICK
+    const nick = prompt("Unesi svoj nadimak:", "Igrač");
+    
+    // 2. KONEKTUJ SE TEK NAKON ŠTO UNESE NICK
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    socket = new WebSocket(`${protocol}://${window.location.host}`);
 
-            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-            socket = new WebSocket(`${protocol}://${window.location.host}`);
-
-            socket.onopen = () => {
-                console.log("Konekcija otvorena, pridružujem se sobi...");
-                socket.send(JSON.stringify({ type: 'join-room', room: 'test-soba', nick: 'Igrač' }));
-            };
+    socket.onopen = () => {
+        console.log("Konekcija otvorena!");
+        socket.send(JSON.stringify({ 
+            type: 'join-room', 
+            room: 'test-soba', 
+            nick: nick // Šaljemo nick koji si uneo
+        }));
+    };
 
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -142,6 +146,11 @@
             ctx.fillStyle = p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+            // ISPIS NICKA
+    ctx.fillStyle = "#fff";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(p.nick || "Anonimus", p.x, p.y - p.radius - 10);
         }
 
         function drawVectorField() {
