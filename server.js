@@ -6,90 +6,67 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const clients = new Map(); 
-let players = { p1: null, p2: null }; 
-let masterId = null; 
+// Struktura: rooms['imeSobe'] = { players: [], masterId: null }
+const rooms = {};
 
 app.use(express.static(__dirname));
 
 wss.on('connection', (ws) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    clients.set(ws, { id: id, nick: 'Anonimus', role: 'spectator' });
-
-    if (clients.size === 1) masterId = id;
-    ws.send(JSON.stringify({ type: 'init', id: id, isMaster: (id === masterId) }));
+    let myRoom = null;
+    let myId = Math.random().toString(36).substr(2, 9);
 
     ws.on('message', (message) => {
         let data;
         try { data = JSON.parse(message); } catch (e) { return; }
 
-        if (data.type === 'set-nick') {
-            const info = clients.get(ws);
-            info.nick = data.nick;
-            clients.set(ws, info);
+        // 1. Join Room
+        if (data.type === 'join-room') {
+            myRoom = data.room;
+            if (!rooms[myRoom]) {
+                rooms[myRoom] = { players: [], masterId: null };
+            }
+
+            const room = rooms[myRoom];
+            room.players.push({ ws, id: myId, nick: data.nick || 'Anonimus' });
+
+            // Prvi igrač u sobi postaje Master
+            if (!room.masterId) room.masterId = myId;
+
+            ws.send(JSON.stringify({ type: 'init', id: myId, isMaster: (myId === room.masterId) }));
+            console.log(`Igrač ${myId} ušao u sobu ${myRoom}`);
         }
-        else if (data.type === 'join-room') {
-            let assignedRole = 'spectator';
-            if (!players.p1) { players.p1 = ws; assignedRole = 'p1'; } 
-            else if (!players.p2) { players.p2 = ws; assignedRole = 'p2'; }
+
+        // 2. Broadcast u okviru sobe
+        else if (data.type === 'player-update' || data.type === 'puck-update') {
+            if (!myRoom || !rooms[myRoom]) return;
             
-            const info = clients.get(ws);
-            info.role = assignedRole;
-            clients.set(ws, info);
-            ws.send(JSON.stringify({ type: 'init-role', role: assignedRole }));
-        // OVO TI JE FALILO: Provera da li su obojica tu
-            if (players.p1 && players.p2) {
-                console.log("Oba igrača su povezana, pokrećem igru!"); // Korisno za debug
-                players.p1.send(JSON.stringify({ type: 'start-game' }));
-                players.p2.send(JSON.stringify({ type: 'start-game' }));
-   }
-        }
-        else if (data.type === 'player-update') {
-            const senderInfo = clients.get(ws);
-            wss.clients.forEach(client => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'opponent-update', role: senderInfo.role, ...data }));
+            rooms[myRoom].players.forEach(client => {
+                if (client.ws !== ws && client.ws.readyState === WebSocket.OPEN) {
+                    client.ws.send(JSON.stringify({ type: data.type, senderId: myId, ...data }));
                 }
             });
         }
-        else if (data.type === 'puck-update') {
-            wss.clients.forEach(client => {
-                if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(message.toString());
-                }
-            });
-        }
+        
+        // 3. Chat u okviru sobe
         else if (data.type === 'chat-message') {
-            const senderInfo = clients.get(ws);
-            const nick = senderInfo ? senderInfo.nick : "Anonimus";
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'chat-message', nick: nick, text: data.text }));
-                }
+            if (!myRoom || !rooms[myRoom]) return;
+            rooms[myRoom].players.forEach(client => {
+                client.ws.send(JSON.stringify({ type: 'chat', nick: data.nick, text: data.text }));
             });
         }
-    }); // OVO ZATVARA ws.on('message')
+    });
 
     ws.on('close', () => {
-        const info = clients.get(ws);
-        if (info && info.role === 'p1') players.p1 = null;
-        if (info && info.role === 'p2') players.p2 = null;
-        clients.delete(ws);
-        
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: 'player-left' }));
+        if (myRoom && rooms[myRoom]) {
+            rooms[myRoom].players = rooms[myRoom].players.filter(p => p.id !== myId);
+            
+            // Ako je Master izašao, dodeli novog
+            if (rooms[myRoom].masterId === myId && rooms[myRoom].players.length > 0) {
+                rooms[myRoom].masterId = rooms[myRoom].players[0].id;
+                rooms[myRoom].players[0].ws.send(JSON.stringify({ type: 'promote-to-master' }));
             }
-        });
-
-        if (masterId === info?.id && clients.size > 0) {
-            const firstClientWs = clients.keys().next().value;
-            masterId = clients.get(firstClientWs).id;
         }
     });
 });
 
-const port = process.env.PORT || 3000; 
-server.listen(port, '0.0.0.0', () => {
-    console.log(`Server slusa na portu ${port}`);
-});
+server.listen(3000, () => console.log('Server radi na portu 3000'));
