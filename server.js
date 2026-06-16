@@ -5,7 +5,6 @@ const WebSocket = require('ws');
 const app = express();
 const server = http.createServer(app);
 
-// Servira tvoj index.html iz istog foldera
 app.use(express.static(__dirname));
 
 const wss = new WebSocket.Server({ server });
