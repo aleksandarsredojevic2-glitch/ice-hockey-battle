@@ -137,36 +137,31 @@ for(let i = 0; i < 65; i++) {
     }
     
 function getSpecs() {
+    // Ovo su čiste koordinate, bez ikakvog množenja sa "scale"
     const startX = (WORLD_WIDTH - ICE_WIDTH) / 2;
     const startY = (WORLD_HEIGHT - ICE_HEIGHT) / 2;
-    const r = 160; 
     
     return {
-        scale: 1, // Ovde je trik: ostavljamo skalu 1 (originalna veličina)
-        left: startX, 
-        right: startX + ICE_WIDTH, 
-        top: startY, 
-        bottom: startY + ICE_HEIGHT, 
-        cornerRadius: r,
-        goalLineLeft: startX + (ICE_WIDTH * 0.07), 
-        goalLineRight: startX + ICE_WIDTH - (ICE_WIDTH * 0.07), 
-        faceoffR: ICE_HEIGHT * 0.13, 
-        goal: { 
-            w: ICE_WIDTH * 0.025, 
-            h: ICE_HEIGHT * 0.15, 
-            y: startY + (ICE_HEIGHT / 2) - ((ICE_HEIGHT * 0.15) / 2), 
-            creaseR: (ICE_HEIGHT * 0.15) * 0.55 
+        left: startX,
+        right: startX + ICE_WIDTH,
+        top: startY,
+        bottom: startY + ICE_HEIGHT,
+        // Ove vrednosti ispod ne smeju imati * scale
+        goalLineLeft: startX + (ICE_WIDTH * 0.07),
+        goalLineRight: startX + ICE_WIDTH - (ICE_WIDTH * 0.07),
+        faceoffR: 78, // Fiksna vrednost (približno 13% od 600)
+        goal: {
+            w: 62.5, // 2.5% od 2500
+            h: 180,  // 15% od 1200
+            y: startY + (ICE_HEIGHT / 2) - 90,
+            creaseR: 99
         }
     };
 }
 function resizeCanvas() {
-    // Fiksiramo internu rezoluciju canvasa na veličinu sveta
-    canvas.width = WORLD_WIDTH;
-    canvas.height = WORLD_HEIGHT;
-    // CSS-om samo kažemo da popuni ceo ekran
-    canvas.style.width = "100vw";
-    canvas.style.height = "100vh";
-    resetPositions();
+    canvas.width = WORLD_WIDTH;  // 3000
+    canvas.height = WORLD_HEIGHT; // 1500
+    // NE MENJAJ CSS style.width / height, pusti da browser sam skalira canvas
 }
 function drawVectorField() {
     const s = getSpecs(); const g = s.goal;
@@ -232,28 +227,16 @@ function drawVectorField() {
     ctx.beginPath(); ctx.arc(s.left + s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI, Math.PI * 1.5); ctx.lineTo(s.right - s.cornerRadius, s.top); ctx.arc(s.right - s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI * 1.5, 0); ctx.lineTo(s.right, s.bottom - s.cornerRadius); ctx.arc(s.right - s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, 0, Math.PI * 0.5); ctx.lineTo(s.left + s.cornerRadius, s.bottom); ctx.arc(s.left + s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, Math.PI * 0.5, Math.PI); ctx.closePath(); ctx.stroke();
 }
 
-// Izmenjena funkcija za crtanje igrača
-function drawPlayer(p, scale) {
-    ctx.save(); 
-    ctx.shadowBlur = 15; 
-    ctx.shadowColor = p.color; 
+function drawPlayer(p) { // Izbaci scale
+    ctx.save();
     ctx.fillStyle = p.color;
-    
-    ctx.beginPath(); 
-    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); 
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 20, 0, Math.PI * 2); // Fiksni radius
     ctx.fill();
-    ctx.strokeStyle = "#ffffff"; 
-    ctx.lineWidth = 3 * scale; 
-    ctx.stroke(); 
-    ctx.restore(); 
+    ctx.restore();
     
-    ctx.fillStyle = "#ffffff"; // Promenio sam u belo da se vidi na pozadini
-    ctx.font = `bold ${Math.floor(16 * scale)}px Arial`;
-    ctx.textAlign = "center";
-    
-    // Provera da li igrač ima nick
-    let name = gameState.players[p.id]?.nick || "Igrač";
-    ctx.fillText(name, p.x, p.y - p.radius - 15);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(gameState.players[p.id]?.nick || "Igrač", p.x, p.y - 35);
 }
 function gameLoop() {
     sendInput();
