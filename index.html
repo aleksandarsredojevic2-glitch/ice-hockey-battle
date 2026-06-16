@@ -10,17 +10,12 @@
             overflow: hidden; background-color: #19252B;
             font-family: 'Arial', sans-serif;
         }
-        canvas { 
-    display: block; 
-    width: 100vw; 
-    height: 100vh; 
-}
-  .scoreboard {
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .scoreboard {
             position: absolute; top: 0px; left: 50.49%; transform: translateX(-50%);
             font-size: 25px; font-weight: bold; background: rgba(0, 0, 0, 0.9);
             padding: 8px 32px; border-radius: 2px; border: none;
             pointer-events: none; z-index: 10; display: flex; gap: 20px;
-            box-shadow: none;
         }
         .team-home { color: #ff3333; text-shadow: 0 0 10px rgba(255,51,51,0.6); }
         .team-away { color: #3333ff; text-shadow: 0 0 10px rgba(51,51,255,0.6); }
@@ -28,56 +23,10 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             color: #fff; font-size: 24px; font-weight: bold; background: rgba(0,0,0,0.85);
             padding: 20px 40px; border-radius: 10px; z-index: 20; text-align: center;
-            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
- 
-     #chat-container {
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 700px;
-    z-index: 100;
-}
-/* 1. Širina scrollbar-a (ovo ga čini tanjim) */
-#chat-box::-webkit-scrollbar {
-    width: 6px; 
-}
-
-/* 2. Pozadina scrollbar-a (providna) */
-#chat-box::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1); 
-}
-
-/* 3. Sam "klizač" (deo koji pomeraš - isto ga pravimo providnijim) */
-#chat-box::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3); /* 30% providnosti (sivo-belo) */
-    border-radius: 10px; /* Zaobljene ivice za moderan izgled */
-}
-
-/* 4. Efekat kada pređeš mišem preko klizača (da postane malo vidljiviji) */
-#chat-box::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5); 
-}
-#chat-box {
-    height: 100px;
-    overflow-y: auto;
-    border: 1px solid rgba(50, 50, 50, 0.7) !important; 
-    border-radius: 10px;                        
-    background: rgba(0,0,0,0.3);
-    color: #fff;
-    padding: 10px;
-    margin-bottom: 1px;
-    font-size: 14px;
-}
-#chat-input {
-    width: 100%;
-    padding: 8px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 2px;
-}
+        #chat-container { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 700px; z-index: 100; }
+        #chat-box { height: 100px; overflow-y: auto; border: 1px solid rgba(50, 50, 50, 0.7); border-radius: 10px; background: rgba(0,0,0,0.3); color: #fff; padding: 10px; margin-bottom: 1px; font-size: 14px; }
+        #chat-input { width: 100%; padding: 8px; background: rgba(0,0,0,0.7); color: #fff; border: 1px solid #444; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -85,263 +34,133 @@
     <input type="text" id="nick-input" placeholder="Unesi svoj nadimak..." maxlength="10">
     <button onclick="joinGame()">Uđi u igru</button>
 </div>
-  <div id="chat-container">
-    <div id="chat-box" style="height: 150px; overflow-y: scroll; border: 1px solid #ccc; background: rgba(0,0,0,0.5); color: white;"></div>
+<div id="chat-container">
+    <div id="chat-box"></div>
     <input type="text" id="chat-input" placeholder="Upiši poruku..." maxlength="50">
 </div>
-    <div class="scoreboard">
-        <span class="team-home">RED</span> 
-        <span id="score" style="color: #fff;">0 : 0</span> 
-        <span class="team-away">BLUE</span>
-    </div>
-
-    <div id="statusOverlay" class="status-overlay">Povezivanje sa serverom...</div>
-
-    <canvas id="hockeyCanvas"></canvas>
+<div class="scoreboard">
+    <span class="team-home">RED</span> 
+    <span id="score" style="color: #fff;">0 : 0</span> 
+    <span class="team-away">BLUE</span>
+</div>
+<div id="statusOverlay" class="status-overlay">Povezivanje sa serverom...</div>
+<canvas id="hockeyCanvas"></canvas>
     
-    <script>
-    // 1. SVE GLOBALNE DEFINICIJE NA JEDNOM MESTU (SAMO OVO)
+<script>
     const socket = new WebSocket('wss://' + window.location.host);
-    socket.onopen = () => {
-    console.log("Konekcija uspostavljena!");
-    document.getElementById("statusOverlay").style.display = "none";
-};
-    const chatBox = document.getElementById('chat-box');
-    const chatInput = document.getElementById('chat-input');
     const canvas = document.getElementById("hockeyCanvas");
     const ctx = canvas.getContext("2d");
     
     let gameState = { players: {}, puck: { x: 0, y: 0 } };
-    let gameActive = false;
-    let keys = {};
+    let myId = null;
     const WORLD_WIDTH = 3000;
     const WORLD_HEIGHT = 1500;
-    const ICE_WIDTH = 2500;
-    const ICE_HEIGHT = 1200;
-    let p1 = { x: 0, y: 0, vx: 0, vy: 0, radius: 18.2, speed: 0.85, friction: 0.885, color: '#ff3333', role: 'p1' };
-    let p2 = { x: 0, y: 0, vx: 0, vy: 0, radius: 18.2, speed: 0.85, friction: 0.885, color: '#3333ff', role: 'p2' };
-    let puck = { x: 0, y: 0, vx: 0, vy: 0, radius: 7, friction: 0.979, color: '#1a1a1a' };
-    let myId = null;
-    let playerNicks = { p1: "Crveni", p2: "Plavi" };
-    let iceScratches = [];
-for(let i = 0; i < 65; i++) {
-    iceScratches.push({ x: Math.random(), y: Math.random(), len: Math.random() * 25 + 10, angle: Math.random() * Math.PI * 2, alpha: Math.random() * 0.12 + 0.04 });
-}
+    let keys = {};
 
-    // 2. FUNKCIJE
     function joinGame() {
         const nick = document.getElementById('nick-input').value.trim();
         if (nick === "") return alert("Unesi nadimak!");
         document.getElementById('login-screen').style.display = 'none';
         socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
     }
-    
-function getSpecs() {
-    // Ovo su čiste koordinate, bez ikakvog množenja sa "scale"
-    const startX = (WORLD_WIDTH - ICE_WIDTH) / 2;
-    const startY = (WORLD_HEIGHT - ICE_HEIGHT) / 2;
-    
-    return {
-        left: startX,
-        right: startX + ICE_WIDTH,
-        top: startY,
-        bottom: startY + ICE_HEIGHT,
-        // Ove vrednosti ispod ne smeju imati * scale
-        goalLineLeft: startX + (ICE_WIDTH * 0.07),
-        goalLineRight: startX + ICE_WIDTH - (ICE_WIDTH * 0.07),
-        faceoffR: 78, // Fiksna vrednost (približno 13% od 600)
-        goal: {
-            w: 62.5, // 2.5% od 2500
-            h: 180,  // 15% od 1200
-            y: startY + (ICE_HEIGHT / 2) - 90,
-            creaseR: 99
-        }
-    };
-}
-function resizeCanvas() {
-    canvas.width = WORLD_WIDTH;  // 3000
-    canvas.height = WORLD_HEIGHT; // 1500
-    // NE MENJAJ CSS style.width / height, pusti da browser sam skalira canvas
-}
-function drawVectorField() {
-    const s = getSpecs(); const g = s.goal;
-    ctx.fillStyle = "#1F232B"; 
-    ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    
-    ctx.beginPath();
-    ctx.arc(s.left + s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI, Math.PI * 1.5);
-    ctx.lineTo(s.right - s.cornerRadius, s.top);
-    ctx.arc(s.right - s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI * 1.5, 0);
-    ctx.lineTo(s.right, s.bottom - s.cornerRadius);
-    ctx.arc(s.right - s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, 0, Math.PI * 0.5);
-    ctx.lineTo(s.left + s.cornerRadius, s.bottom);
-    ctx.arc(s.left + s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, Math.PI * 0.5, Math.PI);
-    ctx.closePath();
-    
-    let iceGrad = ctx.createRadialGradient(WORLD_WIDTH/2, WORLD_HEIGHT/2, 50, WORLD_WIDTH/2, WORLD_HEIGHT/2, WORLD_WIDTH * 0.6);
-    iceGrad.addColorStop(0, "#fafcff"); iceGrad.addColorStop(1, "#e5edf5");
-    ctx.fillStyle = iceGrad; ctx.fill();
-    
-    iceScratches.forEach(sc => {
-        ctx.strokeStyle = `rgba(220, 230, 242, ${sc.alpha})`; ctx.lineWidth = 1; ctx.beginPath();
-        let sx = s.left + sc.x * (s.right - s.left); let sy = s.top + sc.y * (s.bottom - s.top);
-        ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.cos(sc.angle)*sc.len, sy + Math.sin(sc.angle)*sc.len); ctx.stroke();
-    });
 
-    ctx.strokeStyle = "rgba(230, 60, 60, 0.6)"; ctx.lineWidth = 5 * s.scale;
-    ctx.beginPath(); ctx.moveTo(WORLD_WIDTH / 2, s.top); ctx.lineTo(WORLD_WIDTH / 2, s.bottom); ctx.stroke();
-    
-    ctx.strokeStyle = "rgba(60, 60, 230, 0.5)"; ctx.lineWidth = 6 * s.scale;
-    ctx.beginPath(); 
-    ctx.moveTo(s.left + (s.right - s.left) * 0.36, s.top); ctx.lineTo(s.left + (s.right - s.left) * 0.36, s.bottom);
-    ctx.moveTo(s.right - (s.right - s.left) * 0.36, s.top); ctx.lineTo(s.right - (s.right - s.left) * 0.36, s.bottom);
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(230, 60, 60, 0.6)"; ctx.lineWidth = 3 * s.scale;
-    ctx.beginPath(); ctx.moveTo(s.goalLineLeft, s.top + 5); ctx.lineTo(s.goalLineLeft, s.bottom - 5);
-    ctx.moveTo(s.goalLineRight, s.top + 5); ctx.lineTo(s.goalLineRight, s.bottom - 5); ctx.stroke();
-
-    ctx.strokeStyle = "rgba(60, 150, 230, 0.6)"; ctx.lineWidth = 2.5 * s.scale; ctx.fillStyle = "rgba(180, 220, 255, 0.25)";
-    ctx.beginPath(); ctx.arc(s.goalLineLeft, WORLD_HEIGHT / 2, g.creaseR, -Math.PI/2, Math.PI/2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(s.goalLineRight, WORLD_HEIGHT / 2, g.creaseR, Math.PI/2, -Math.PI/2); ctx.fill(); ctx.stroke();
-    
-    ctx.beginPath(); ctx.arc(WORLD_WIDTH / 2, s.bottom, 22 * s.scale, Math.PI, 0); ctx.stroke();
-    
-    const circlesX = [s.left + (s.goalLineLeft - s.left) * 2.8, s.right - (s.right - s.goalLineRight) * 2.8];
-    const circlesY = [s.top + s.faceoffR * 1.25, s.bottom - s.faceoffR * 1.25];
-    circlesX.forEach(cx => { circlesY.forEach(cy => {
-        ctx.strokeStyle = "rgba(230, 60, 60, 0.45)"; ctx.lineWidth = 2 * s.scale; ctx.fillStyle = "rgba(230, 60, 60, 0.65)";
-        ctx.beginPath(); ctx.arc(cx, cy, s.faceoffR, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.arc(cx, cy, 4 * s.scale, 0, Math.PI * 2); ctx.fill();
-    });});
-
-    ctx.fillStyle = "rgba(50, 90, 140, 0.45)"; ctx.font = `bold ${Math.floor(45 * s.scale)}px Arial`; 
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("IHB", WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
-
-    ctx.lineWidth = 3.5 * s.scale; ctx.fillStyle = "rgba(240, 240, 250, 0.25)"; ctx.strokeStyle = "#de2f2f";
-    ctx.beginPath(); ctx.moveTo(s.goalLineLeft, g.y); ctx.lineTo(s.goalLineLeft - g.w + 10*s.scale, g.y); ctx.arcTo(s.goalLineLeft - g.w, g.y, s.goalLineLeft - g.w, g.y + g.h/2, 10*s.scale); ctx.arcTo(s.goalLineLeft - g.w, g.y + g.h, s.goalLineLeft - g.w + 10*s.scale, g.y + g.h, 10*s.scale); ctx.lineTo(s.goalLineLeft, g.y + g.h); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(s.goalLineRight, g.y); ctx.lineTo(s.goalLineRight + g.w - 10*s.scale, g.y); ctx.arcTo(s.goalLineRight + g.w, g.y, s.goalLineRight + g.w, g.y + g.h/2, 10*s.scale); ctx.arcTo(s.goalLineRight + g.w, g.y + g.h, s.goalLineRight + g.w - 10*s.scale, g.y + g.h, 10*s.scale); ctx.lineTo(s.goalLineRight, g.y + g.h); ctx.fill(); ctx.stroke();
-    
-    ctx.strokeStyle = "#334155"; ctx.lineWidth = 7 * s.scale;
-    ctx.beginPath(); ctx.arc(s.left + s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI, Math.PI * 1.5); ctx.lineTo(s.right - s.cornerRadius, s.top); ctx.arc(s.right - s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI * 1.5, 0); ctx.lineTo(s.right, s.bottom - s.cornerRadius); ctx.arc(s.right - s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, 0, Math.PI * 0.5); ctx.lineTo(s.left + s.cornerRadius, s.bottom); ctx.arc(s.left + s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, Math.PI * 0.5, Math.PI); ctx.closePath(); ctx.stroke();
-}
-
-function drawPlayer(p) { // Izbaci scale
-    ctx.save();
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 20, 0, Math.PI * 2); // Fiksni radius
-    ctx.fill();
-    ctx.restore();
-    
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(gameState.players[p.id]?.nick || "Igrač", p.x, p.y - 35);
-}
-function gameLoop() {
-    sendInput();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 1. Pronađi svog igrača - socket.id ti treba ako ga server šalje pri konekciji
-    // Ako server ne šalje tvoj ID, moramo ga dodati u onmessage ili globalno
-    let myPlayer = gameState.players ? gameState.players[socket.id] : null;
-
-    let camX = 0;
-    let camY = 0;
-
-    // Ako nemamo myPlayer (nismo dobili state), kamera je na sredini terena
-    if (myPlayer) {
-        camX = Math.max(0, Math.min(myPlayer.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
-        camY = Math.max(0, Math.min(myPlayer.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
-    } else {
-        camX = (WORLD_WIDTH - canvas.width) / 2;
-        camY = (WORLD_HEIGHT - canvas.height) / 2;
+    function resizeCanvas() {
+        canvas.width = WORLD_WIDTH;
+        canvas.height = WORLD_HEIGHT;
     }
 
-    ctx.save();
-    ctx.translate(-camX, -camY);
+    function drawVectorField() {
+        // Pozadina
+        ctx.fillStyle = "#1F232B"; 
+        ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        
+        // Teren
+        ctx.fillStyle = "#e5edf5";
+        ctx.fillRect(250, 150, 2500, 1200);
 
-    drawVectorField();
+        // Linije terena (pojednostavljeno za punu veličinu)
+        ctx.strokeStyle = "rgba(230, 60, 60, 0.6)"; ctx.lineWidth = 10;
+        ctx.beginPath(); ctx.moveTo(WORLD_WIDTH / 2, 150); ctx.lineTo(WORLD_WIDTH / 2, 1350); ctx.stroke();
+        
+        ctx.strokeStyle = "rgba(60, 60, 230, 0.5)"; ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(750, 150); ctx.lineTo(750, 1350);
+        ctx.moveTo(2250, 150); ctx.lineTo(2250, 1350);
+        ctx.stroke();
+    }
 
-    if (gameState.players) {
+    function drawPlayer(p) {
+        ctx.save();
+        ctx.shadowBlur = 15; ctx.shadowColor = p.color;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; ctx.stroke();
+        ctx.restore();
+        
+        ctx.fillStyle = "#fff"; ctx.font = "bold 24px Arial"; ctx.textAlign = "center";
+        ctx.fillText(gameState.players[p.id]?.nick || "Igrač", p.x, p.y - 50);
+    }
+
+    function gameLoop() {
+        sendInput();
+        ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        
+        let myPlayer = gameState.players ? gameState.players[myId] : null;
+
+        let camX = 0, camY = 0;
+        if (myPlayer) {
+            camX = Math.max(0, Math.min(myPlayer.x - window.innerWidth / 2, WORLD_WIDTH - window.innerWidth));
+            camY = Math.max(0, Math.min(myPlayer.y - window.innerHeight / 2, WORLD_HEIGHT - window.innerHeight));
+        }
+
+        ctx.save();
+        ctx.translate(-camX, -camY);
+
+        drawVectorField();
+
         for (let id in gameState.players) {
             let p = gameState.players[id];
-            // BITNO: Moramo proslediti ID igraču da bi drawPlayer mogao da nađe nick
-            p.id = id; 
-            drawPlayer(p, 1); 
+            p.id = id;
+            drawPlayer(p);
+        }
+
+        if (gameState.puck) {
+            ctx.fillStyle = "#1a1a1a";
+            ctx.beginPath();
+            ctx.arc(gameState.puck.x, gameState.puck.y, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function sendInput() {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'input', keys: keys }));
         }
     }
 
-    if (gameState.puck) {
-        ctx.fillStyle = "#1a1a1a";
-        ctx.beginPath();
-        ctx.arc(gameState.puck.x, gameState.puck.y, 7, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    ctx.restore();
-    requestAnimationFrame(gameLoop);
-}
-function resetPositions() {
-    const s = getSpecs();
-    p1.radius = 16 * s.scale; p1.speed = 0.5 * s.scale;
-    p2.radius = 16 * s.scale; p2.speed = 0.5 * s.scale;
-    puck.radius = 7 * s.scale;
-
-    p1.x = canvas.width * 0.3; p1.y = canvas.height / 2; p1.vx = 0; p1.vy = 0;
-    p2.x = canvas.width * 0.7; p2.y = canvas.height / 2; p2.vx = 0; p2.vy = 0;
-    puck.x = canvas.width / 2; puck.y = canvas.height / 2; puck.vx = 0; puck.vy = 0;
-}
-
-function playSound(freq, type, duration) {
-    try {
-        let context = new (window.AudioContext || window.webkitAudioContext)();
-        let osc = context.createOscillator(); let gain = context.createGain();
-        osc.connect(gain); gain.connect(context.destination);
-        osc.type = type; osc.frequency.setValueAtTime(freq, context.currentTime);
-        gain.gain.setValueAtTime(0.08, context.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + duration);
-        osc.start(); osc.stop(context.currentTime + duration);
-    } catch(e) {}
-}
-
-function sendInput() {
-    if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ 
-            type: 'input', 
-            keys: keys 
-        }));
-    }
-}
-
-    // 3. EVENT LISTENERI I POKRETANJE
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && chatInput.value.trim() !== "") {
-            socket.send(JSON.stringify({ type: 'chat-message', text: chatInput.value }));
-            chatInput.value = '';
-        }
-    });
-
-    window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; keys[e.keyCode] = true; });
-    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; keys[e.keyCode] = false; });
-
+    socket.onopen = () => document.getElementById("statusOverlay").style.display = "none";
+    
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'your-id') { // Server treba da pošalje tvoj ID
-        myId = data.id;
-    }
+        if (data.type === 'your-id') myId = data.id;
         if (data.type === 'state') {
             gameState.players = data.players;
             gameState.puck = data.puck;
-            gameActive = true;
-            console.log("Prijem stanja:", data.players);
         } else if (data.type === 'chat') {
-            let msgElement = document.createElement('div');
-            msgElement.innerText = data.text;
-            chatBox.appendChild(msgElement);
-            chatBox.scrollTop = chatBox.scrollHeight;
+            let msg = document.createElement('div');
+            msg.innerText = data.text;
+            document.getElementById('chat-box').appendChild(msg);
         }
     };
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
     resizeCanvas();
     gameLoop();
