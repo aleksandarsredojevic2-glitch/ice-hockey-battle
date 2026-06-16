@@ -31,7 +31,6 @@ wss.on('connection', (ws) => {
 
     ws.on('close', () => delete players[id]);
 });
-
 setInterval(() => {
     for (let id in players) {
         let p = players[id];
