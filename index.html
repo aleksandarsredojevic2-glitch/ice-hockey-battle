@@ -2,143 +2,26 @@
 <html lang="sr">
 <head>
     <meta charset="UTF-8">
-    <title>IHB Ice Hockey - Perfect Physics & Boundaries</title>
-    <style>
-        * { box-sizing: border-box; }
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background-color: #19252B;
-            font-family: 'Arial', sans-serif;
-        }
-        canvas { display: block; width: 100vw; height: 100vh; }
-        .scoreboard {
-            position: absolute; top: 0px; left: 50.49%; transform: translateX(-50%);
-            font-size: 25px; font-weight: bold; background: rgba(0, 0, 0, 0.9);
-            padding: 8px 32px; border-radius: 2px; border: none;
-            pointer-events: none; z-index: 10; display: flex; gap: 20px;
-            box-shadow: none;
-        }
-        .team-home { color: #ff3333; text-shadow: 0 0 10px rgba(255,51,51,0.6); }
-        .team-away { color: #3333ff; text-shadow: 0 0 10px rgba(51,51,255,0.6); }
-        .status-overlay {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #fff; font-size: 24px; font-weight: bold; background: rgba(0,0,0,0.85);
-            padding: 20px 40px; border-radius: 10px; z-index: 20; text-align: center;
-            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
- 
-     #chat-container {
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 700px;
-    z-index: 100;
-}
-/* 1. Širina scrollbar-a (ovo ga čini tanjim) */
-#chat-box::-webkit-scrollbar {
-    width: 6px; 
-}
-
-/* 2. Pozadina scrollbar-a (providna) */
-#chat-box::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1); 
-}
-
-/* 3. Sam "klizač" (deo koji pomeraš - isto ga pravimo providnijim) */
-#chat-box::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3); /* 30% providnosti (sivo-belo) */
-    border-radius: 10px; /* Zaobljene ivice za moderan izgled */
-}
-
-/* 4. Efekat kada pređeš mišem preko klizača (da postane malo vidljiviji) */
-#chat-box::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5); 
-}
-#chat-box {
-    height: 100px;
-    overflow-y: auto;
-    border: 1px solid rgba(50, 50, 50, 0.7) !important; 
-    border-radius: 10px;                        
-    background: rgba(0,0,0,0.3);
-    color: #fff;
-    padding: 10px;
-    margin-bottom: 1px;
-    font-size: 14px;
-}
-#chat-input {
-    width: 100%;
-    padding: 8px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 2px;
-}
-    </style>
-</head>
+    <title>IHB Ice Hockey 5v5</title>
+    </head>
 <body>
-<div id="login-screen" style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%); z-index:200;">
-    <input type="text" id="nick-input" placeholder="Unesi svoj nadimak..." maxlength="10">
-    <button onclick="joinGame()">Uđi u igru</button>
-</div>
-  <div id="chat-container">
-    <div id="chat-box" style="height: 150px; overflow-y: scroll; border: 1px solid #ccc; background: rgba(0,0,0,0.5); color: white;"></div>
-    <input type="text" id="chat-input" placeholder="Upiši poruku..." maxlength="50">
-</div>
-    <div class="scoreboard">
-        <span class="team-home">RED</span> 
-        <span id="score" style="color: #fff;">0 : 0</span> 
-        <span class="team-away">BLUE</span>
-    </div>
-
-    <div id="statusOverlay" class="status-overlay">Povezivanje sa serverom...</div>
-
-    <canvas id="hockeyCanvas"></canvas>
-    
-    <script>
-        // 1. Definiši socket globalno
+<script>
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const host = window.location.host; 
-const socket = new WebSocket(`${protocol}://${host}`);
+const socket = new WebSocket(`${protocol}://${window.location.host}`);
 
-// 2. Dodaj logove da vidimo šta se dešava
-socket.onopen = () => {
-    console.log("Konekcija otvorena!");
-    document.getElementById("statusOverlay").innerText = "Povezano! Unesi nadimak.";
-};
+const WORLD_WIDTH = 3000;
+const WORLD_HEIGHT = 1500;
+const canvas = document.getElementById("hockeyCanvas");
+const ctx = canvas.getContext("2d");
 
-socket.onerror = (err) => {
-    console.error("Socket greška:", err);
-    document.getElementById("statusOverlay").innerText = "Greška konekcije!";
-};
-        const WORLD_WIDTH = 3000;
-        const WORLD_HEIGHT = 1500;
-        // Ovo je tvoja prava površina za igru
-        const ICE_WIDTH = 2500;   
-        const ICE_HEIGHT = 1200;
-        const chatInput = document.getElementById('chat-input');
-const chatBox = document.getElementById('chat-box');
+// NOVO: Struktura igrača
+let myPlayer = { id: null, x: 500, y: 500, vx: 0, vy: 0, color: '#ff3333', radius: 16, speed: 0.5 };
+let players = []; // Ovde čuvamo sve ostale igrače
+let puck = { x: 1500, y: 750, vx: 0, vy: 0, radius: 7, friction: 0.979 };
+let gameActive = false;
 
-chatInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && chatInput.value.trim() !== "") {
-        let msg = chatInput.value;
-        // Šalješ poruku na server
-        socket.send(JSON.stringify({ type: 'chat-message', text: msg }));
-        chatInput.value = '';
-    }
-});
-         
-        const urlParams = new URLSearchParams(window.location.search);
-        const teamFromUrl = urlParams.get('team');
-
-        const canvas = document.getElementById("hockeyCanvas");
-        const ctx = canvas.getContext("2d");
-
-        let scoreHome = 0; let scoreAway = 0;
-        let myRole = null; 
-        let gameActive = false;
-
-        function resizeCanvas() {
+// ... (tvoj ostatak koda: resizeCanvas, getSpecs, handleCollision...)
+ function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             resetPositions();
@@ -182,35 +65,7 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
         let keys = {};
         window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; keys[e.keyCode] = true; });
         window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; keys[e.keyCode] = false; });
-
-        function resetPositions() {
-            const s = getSpecs();
-            p1.radius = 16 * s.scale; p1.speed = 0.5 * s.scale;
-            p2.radius = 16 * s.scale; p2.speed = 0.5 * s.scale;
-            puck.radius = 7 * s.scale;
-
-            p1.x = canvas.width * 0.3; p1.y = canvas.height / 2; p1.vx = 0; p1.vy = 0;
-            p2.x = canvas.width * 0.7; p2.y = canvas.height / 2; p2.vx = 0; p2.vy = 0;
-            puck.x = canvas.width / 2; puck.y = canvas.height / 2; puck.vx = 0; puck.vy = 0;
-        }
-
-        let iceScratches = [];
-        for(let i=0; i<65; i++) {
-            iceScratches.push({ x: Math.random(), y: Math.random(), len: Math.random() * 25 + 10, angle: Math.random() * Math.PI * 2, alpha: Math.random() * 0.12 + 0.04 });
-        }
-
-        function playSound(freq, type, duration) {
-            try {
-                let context = new (window.AudioContext || window.webkitAudioContext)();
-                let osc = context.createOscillator(); let gain = context.createGain();
-                osc.connect(gain); gain.connect(context.destination);
-                osc.type = type; osc.frequency.setValueAtTime(freq, context.currentTime);
-                gain.gain.setValueAtTime(0.08, context.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + duration);
-                osc.start(); osc.stop(context.currentTime + duration);
-            } catch(e) {}
-        }
-
-        function handleCollision(obj1, obj2) {
+ function handleCollision(obj1, obj2) {
             let dx = obj2.x - obj1.x; let dy = obj2.y - obj1.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
             let minDist = obj1.radius + obj2.radius;
@@ -241,244 +96,92 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
                 }
             }
         }
+function update() {
+    if (!gameActive) return;
 
-        function handleRinkBoundaries(obj, isPuck = false) {
-    const s = getSpecs();
-    const g = s.goal;
-    const bounceCoeff = isPuck ? 0.78 : 0.2;
-
-    // Funkcija koja proverava sudar sa linijom (da li je horizontalna ili vertikalna)
-    function checkLineCollision(x1, y1, x2, y2) {
-        if (obj.x + obj.radius > Math.min(x1, x2) && obj.x - obj.radius < Math.max(x1, x2) &&
-            obj.y + obj.radius > Math.min(y1, y2) && obj.y - obj.radius < Math.max(y1, y2)) {
-            
-            // Odbijanje
-            if (x1 === x2) { // Vertikalna linija
-                obj.vx *= -bounceCoeff;
-                obj.x = (obj.x < x1) ? x1 - obj.radius : x1 + obj.radius;
-            } else { // Horizontalna linija
-                obj.vy *= -bounceCoeff;
-                obj.y = (obj.y < y1) ? y1 - obj.radius : y1 + obj.radius;
-            }
-        }
-    }
-
-    // LEVI GOL: Crtamo fiziku oko celog crvenog okvira
-    // Gornja horizontalna
-    checkLineCollision(s.goalLineLeft - g.w, g.y, s.goalLineLeft, g.y);
-    // Donja horizontalna
-    checkLineCollision(s.goalLineLeft - g.w, g.y + g.h, s.goalLineLeft, g.y + g.h);
-    // Zadnja vertikalna
-    checkLineCollision(s.goalLineLeft - g.w, g.y, s.goalLineLeft - g.w, g.y + g.h);
-
-    // DESNI GOL: Isto to
-    checkLineCollision(s.goalLineRight + g.w, g.y, s.goalLineRight, g.y);
-    checkLineCollision(s.goalLineRight + g.w, g.y + g.h, s.goalLineRight, g.y + g.h);
-    checkLineCollision(s.goalLineRight + g.w, g.y, s.goalLineRight + g.w, g.y + g.h);
-
-    // ... ostatak logike za gol (puck-in-goal) ostaje isti ...
-
-    // 2. Logika za prolazak paka kroz gol (gol-linija)
-    if (obj.x + obj.radius > s.goalLineLeft - g.w && obj.x - obj.radius < s.goalLineLeft && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
-        if (isPuck) {
-            if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
-                if (obj.x <= s.goalLineLeft && obj.x > s.goalLineLeft - g.w) {
-                    if (myRole === 'p1' || myRole === 'p2') { socket.send(JSON.stringify({ type: 'goal-scored', team: 'away' })); }
-                    return;
-                }
-            }
-        }
-    }
-
-    if (obj.x + obj.radius > s.goalLineRight && obj.x - obj.radius < s.goalLineRight + g.w && obj.y + obj.radius > g.y && obj.y - obj.radius < g.y + g.h) {
-        if (isPuck) {
-            if (obj.y > g.y + 4 && obj.y < g.y + g.h - 4) {
-                if (obj.x >= s.goalLineRight && obj.x < s.goalLineRight + g.w) {
-                    if (myRole === 'p1' || myRole === 'p2') { socket.send(JSON.stringify({ type: 'goal-scored', team: 'home' })); }
-                    return;
-                }
-            }
-        }
-    }
-
-    // 3. Logika za zidove (ivice terena i zaobljene uglove)
-    let centers = [
-        {x: s.left + s.cornerRadius, y: s.top + s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.top + s.cornerRadius},
-        {x: s.left + s.cornerRadius, y: s.bottom - s.cornerRadius}, {x: s.right - s.cornerRadius, y: s.bottom - s.cornerRadius}
-    ];
-    let inCorner = false;
-    centers.forEach(c => {
-        let inCornerX = (c.x > obj.x && c.x === s.left + s.cornerRadius) || (c.x < obj.x && c.x === s.right - s.cornerRadius);
-        let inCornerY = (c.y > obj.y && c.y === s.top + s.cornerRadius) || (c.y < obj.y && c.y === s.bottom - s.cornerRadius);
-        if (inCornerX && inCornerY) {
-            let dx = obj.x - c.x; let dy = obj.y - c.y;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            let maxDist = s.cornerRadius - obj.radius;
-            if (dist > maxDist) {
-                inCorner = true;
-                let nx = dx / dist; let ny = dy / dist;
-                obj.x = c.x + nx * maxDist; obj.y = c.y + ny * maxDist;
-                let dotProduct = obj.vx * nx + obj.vy * ny;
-                if (dotProduct > 0) { 
-                    obj.vx = (obj.vx - (1 + bounceCoeff) * dotProduct * nx);
-                    obj.vy = (obj.vy - (1 + bounceCoeff) * dotProduct * ny);
-                }
-            }
-        }
-    });
-
-    if (!inCorner) {
-        if (obj.x - obj.radius < s.left) { obj.x = s.left + obj.radius; obj.vx *= -bounceCoeff; }
-        if (obj.x + obj.radius > s.right) { obj.x = s.right - obj.radius; obj.vx *= -bounceCoeff; }
-        if (obj.y - obj.radius < s.top) { obj.y = s.top + obj.radius; obj.vy *= -bounceCoeff; }
-        if (obj.y + obj.radius > s.bottom) { obj.y = s.bottom - obj.radius; obj.vy *= -bounceCoeff; }
-    }
-}
-
-        function update() {
-    if (document.activeElement === document.getElementById('chat-input')) return;
-    if (!gameActive || myRole === 'spectator') return;
-    
-    let me = (myRole === 'p1') ? p1 : p2;
-
-    // 1. INPUT: Izračunaj kretanje
+    // 1. INPUT
     let dx = 0; let dy = 0;
-    if (keys['a'] || keys[37]) dx -= 1;
-    if (keys['d'] || keys[39]) dx += 1;
-    if (keys['w'] || keys[38]) dy -= 1;
-    if (keys['s'] || keys[40]) dy += 1;
+    if (keys['a']) dx -= 1; if (keys['d']) dx += 1;
+    if (keys['w']) dy -= 1; if (keys['s']) dy += 1;
+    
+    myPlayer.vx += dx * myPlayer.speed;
+    myPlayer.vy += dy * myPlayer.speed;
+    myPlayer.vx *= 0.95; // Trenje
+    myPlayer.vy *= 0.95;
+    myPlayer.x += myPlayer.vx;
+    myPlayer.y += myPlayer.vy;
 
-    let mag = Math.sqrt(dx * dx + dy * dy);
-    if (mag > 0) {
-        dx /= mag; dy /= mag;
-        me.vx += dx * me.speed;
-        me.vy += dy * me.speed;
-    }
-
-    // 2. ŠUTIRANJE (Samo Master sme da menja brzinu paka direktno)
-    if (isMaster && (keys['x'] || keys[' '] || keys[32])) {
-        let dxP = puck.x - me.x;
-        let dyP = puck.y - me.y;
-        let dist = Math.sqrt(dxP * dxP + dyP * dyP);
-
-        if (dist < me.radius + puck.radius + 18 * getSpecs().scale) {
-            let angle = Math.atan2(dyP, dxP);
-            let snap = Math.PI / 4;
-            angle = Math.round(angle / snap) * snap;
-            puck.vx = Math.cos(angle) * 14 * getSpecs().scale;
-            puck.vy = Math.sin(angle) * 14 * getSpecs().scale;
-            playSound(320, 'triangle', 0.1);
-        }
-    }
-
-    // 3. KOLIZIJE I FIZIKA PAKA
-    if (isMaster) {
-        handleCollision(p1, puck);
-        handleCollision(p2, puck);
-        handleCollision(p1, p2);
-        handleRinkBoundaries(p1, false);
-        handleRinkBoundaries(p2, false);
-        handleRinkBoundaries(puck, true);
-        
-        // Master računa kretanje paka
-        puck.vx *= puck.friction;
-        puck.vy *= puck.friction;
-        puck.x += puck.vx;
-        puck.y += puck.vy;
-        
-        // Šalje ažuriranu poziciju paka svima
-        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
-    } else {
-        // Nisi Master: samo Lerp-uj pak ka Masterovoj poziciji
-        puck.x += (puckTarget.x - puck.x) * 0.3;
-        puck.y += (puckTarget.y - puck.y) * 0.3;
-        
-        // Igrači i dalje rešavaju sopstvene kolizije sa zidovima
-        handleRinkBoundaries(me, false);
-    }
-
-    // 4. TRENJE I POZICIJA IGRAČA (Svi rade za sebe)
-    [p1, p2].forEach(obj => {
-        obj.vx *= obj.friction;
-        obj.vy *= obj.friction;
-        obj.x += obj.vx;
-        obj.y += obj.vy;
-    });
-
-    // 5. SLANJE PODATAKA
-    socket.send(JSON.stringify({ type: 'player-update', x: me.x, y: me.y, vx: me.vx, vy: me.vy }));
+    // 2. SLANJE
+    socket.send(JSON.stringify({ 
+        type: 'player-update', 
+        x: myPlayer.x, y: myPlayer.y, vx: myPlayer.vx, vy: myPlayer.vy 
+    }));
 }
 
-        socket.onmessage = (event) => {
+socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    
-    // --- INTEGRACIJA MASTER SISTEMA ---
-    if (data.type === 'init') {
-        isMaster = data.isMaster;
-    }
-    else if (data.type === 'puck-update') {
-        // Ako NISI Master, ažuriraj target poziciju za Lerp
-        if (!isMaster) {
-            puckTarget.x = data.x;
-            puckTarget.y = data.y;
-        }
-    }
-    // ----------------------------------
 
-    if (data.type === 'init-role') {
-        myRole = data.role;
-        if (typeof myPendingNick !== 'undefined') {
-            playerNicks[myRole] = myPendingNick;
+    if (data.type === 'init') {
+        myPlayer.id = data.id;
+    } 
+    else if (data.type === 'player-update') {
+        // Pronađi ili dodaj igrača
+        let p = players.find(pl => pl.id === data.senderId);
+        if (p) {
+            p.x = data.x; p.y = data.y;
+        } else {
+            players.push({ id: data.senderId, x: data.x, y: data.y, radius: 16, color: '#3333ff' });
         }
-        document.getElementById("statusOverlay").innerText = (myRole === 'spectator') 
-            ? "Soba je puna." 
-            : `Vi ste ${myRole === 'p1' ? 'CRVENI' : 'PLAVI'}. Čeka se protivnik...`;
-    } 
-    else if (data.type === 'start-game') {
-        gameActive = true; 
-        document.getElementById("statusOverlay").style.display = 'none';
-    } 
-    else if (data.type === 'opponent-update') {
-        let opponent = (myRole === 'p1') ? p2 : p1;
-        opponent.x = data.x; opponent.y = data.y; opponent.vx = data.vx; opponent.vy = data.vy;
-        console.log("Ažuriram protivnika na:", data.x, data.y);
-    } 
-    else if (data.type === 'update-nick') {
-        playerNicks[data.role] = data.nick;
-        console.log("Primljen nick za " + data.role + ": " + data.nick);
-    } 
-    
-    // ... unutar socket.onmessage ...
-else if (data.type === 'init') {
-    isMaster = data.isMaster;
-    // AKO SI MASTER, odmah reci serveru gde je pak da bi se i drugi igrač sinhronizovao
-    if (isMaster) {
-        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
     }
-}
-    else if (data.type === 'sync-puck') {
-        puck.x = data.x; puck.y = data.y; puck.vx = data.vx; puck.vy = data.vy;
-    } 
-    else if (data.type === 'reset-round') {
-        if (data.team === 'home') scoreHome++; else if (data.team === 'away') scoreAway++;
-        document.getElementById("score").innerText = `${scoreHome} : ${scoreAway}`;
-        playSound(90, 'sawtooth', 0.6); 
-        resetPositions();
-    } 
-    else if (data.type === 'player-left') {
-        gameActive = false; 
-        document.getElementById("statusOverlay").style.display = 'block';
-        document.getElementById("statusOverlay").innerText = "Protivnik je izašao.";
-    } 
-    
- else if (data.type === 'chat-message') {
-    let div = document.createElement('div');
-    div.innerText = data.nick + ": " + data.text; // Prikaz: "Ime: Poruka"
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
 };
-        function drawVectorField() {
+
+function gameLoop() {
+    update();
+
+    // Kamera uvek prati myPlayer
+    let camX = Math.max(0, Math.min(myPlayer.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
+    let camY = Math.max(0, Math.min(myPlayer.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
+
+    ctx.save();
+    ctx.translate(-camX, -camY);
+
+    drawVectorField();
+    
+    // Crtamo sve ostale
+    players.forEach(p => drawPlayer(p));
+    // Crtamo sebe
+    drawPlayer(myPlayer);
+    
+    ctx.restore();
+    requestAnimationFrame(gameLoop);
+}
+ function drawPlayer(p) {
+    ctx.save(); 
+    ctx.shadowBlur = 15; 
+    ctx.shadowColor = p.color; 
+    ctx.fillStyle = p.color;
+    
+    // Crtanje igrača
+    ctx.beginPath(); 
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); 
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff"; 
+    ctx.lineWidth = 3 * getSpecs().scale; 
+    ctx.stroke(); 
+    ctx.restore(); 
+    
+    // Crtanje nadimka
+    ctx.fillStyle = "#1a3a5a";
+    // Veličina 16 je malo suptilnija od 20
+    ctx.font = `bold ${Math.floor(16 * getSpecs().scale)}px Arial`;
+    ctx.textAlign = "center";
+    
+    // Umesto p.color, koristi ulogu
+let name = (p.role === 'p1') ? playerNicks.p1 : playerNicks.p2;
+    
+    ctx.fillText(name, p.x, p.y - p.radius - 15);
+}
+function drawVectorField() {
             const s = getSpecs(); const g = s.goal;
             
             // 1. Pozadina celog sveta
@@ -555,89 +258,8 @@ else if (data.type === 'init') {
             ctx.beginPath(); ctx.arc(s.left + s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI, Math.PI * 1.5); ctx.lineTo(s.right - s.cornerRadius, s.top); ctx.arc(s.right - s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI * 1.5, 0); ctx.lineTo(s.right, s.bottom - s.cornerRadius); ctx.arc(s.right - s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, 0, Math.PI * 0.5); ctx.lineTo(s.left + s.cornerRadius, s.bottom); ctx.arc(s.left + s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, Math.PI * 0.5, Math.PI); ctx.closePath(); ctx.stroke();
         }
 
-        function drawPlayer(p) {
-    ctx.save(); 
-    ctx.shadowBlur = 15; 
-    ctx.shadowColor = p.color; 
-    ctx.fillStyle = p.color;
-    
-    // Crtanje igrača
-    ctx.beginPath(); 
-    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); 
-    ctx.fill();
-    ctx.strokeStyle = "#ffffff"; 
-    ctx.lineWidth = 3 * getSpecs().scale; 
-    ctx.stroke(); 
-    ctx.restore(); 
-    
-    // Crtanje nadimka
-    ctx.fillStyle = "#1a3a5a";
-    // Veličina 16 je malo suptilnija od 20
-    ctx.font = `bold ${Math.floor(16 * getSpecs().scale)}px Arial`;
-    ctx.textAlign = "center";
-    
-    // Umesto p.color, koristi ulogu
-let name = (p.role === 'p1') ? playerNicks.p1 : playerNicks.p2;
-    
-    ctx.fillText(name, p.x, p.y - p.radius - 15);
-}
-function joinGame() {
-    const nick = document.getElementById('nick-input').value.trim();
-    
-    if (nick === "") {
-        alert("Unesi nadimak!");
-        return;
-    }
+// ... (ostatak funkcija: drawPlayer, drawVectorField...)
 
-    // PROVERA: Ako socket nije spreman (state 0 je CONNECTING, 3 je CLOSED)
-    if (socket.readyState !== WebSocket.OPEN) {
-        alert("Server još uvek nije spreman. Sačekaj sekund-dva i pokušaj ponovo.");
-        return;
-    }
-
-    // Sačuvaj nadimak u globalnu promenljivu
-    window.myPendingNick = nick;
-
-    // 1. Pošalji nadimak serveru
-    socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
-    
-    // 2. Pošalji zahtev za ulazak u sobu sa malim razmakom
-    setTimeout(() => {
-        socket.send(JSON.stringify({ type: 'join-room', room: 'glavna' }));
-        
-        // 3. Sakrij login ekran tek kada pošaljemo oba zahteva
-        document.getElementById('login-screen').style.display = 'none';
-    }, 50);
-}
-        function gameLoop() {
-    update();
-
-    // PROVERA: Ako nismo još dobili ulogu, samo crtamo i čekamo
-    if (!myRole) {
-        requestAnimationFrame(gameLoop);
-        return;
-    }
-
-    // 1. Izračunaj gde kamera treba da bude (prati igrača)
-    let me = (myRole === 'p1') ? p1 : p2;
-    let camX = Math.max(0, Math.min(me.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
-    let camY = Math.max(0, Math.min(me.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
-
-    // 2. Počni crtanje sa "pomerenom" kamerom
-    ctx.save();
-    ctx.translate(-camX, -camY);
-
-    // 3. Pozovi tvoje originalne funkcije za crtanje
-    drawVectorField(); 
-    drawPlayer(p1); 
-    drawPlayer(p2);
-    ctx.fillStyle = puck.color; ctx.beginPath(); ctx.arc(puck.x, puck.y, puck.radius, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
-    
-    ctx.restore();
-    requestAnimationFrame(gameLoop);
-}
-        resizeCanvas(); gameLoop();
-    </script>
+</script>
 </body>
 </html>
