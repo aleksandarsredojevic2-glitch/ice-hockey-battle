@@ -69,9 +69,22 @@ setInterval(() => {
     puck.x += puck.vx; 
     puck.y += puck.vy;
 
-    // Odbijanje paka od zidova
-    if (puck.x < 7 || puck.x > 3000 - 7) puck.vx *= -1;
-    if (puck.y < 7 || puck.y > 1500 - 7) puck.vy *= -1;
+    // Precizno odbijanje paka od zidova
+    if (puck.x < 7) { 
+        puck.x = 7; 
+        puck.vx *= -1; 
+    } else if (puck.x > 3000 - 7) { 
+        puck.x = 3000 - 7; 
+        puck.vx *= -1; 
+    }
+
+    if (puck.y < 7) { 
+        puck.y = 7; 
+        puck.vy *= -1; 
+    } else if (puck.y > 1500 - 7) { 
+        puck.y = 1500 - 7; 
+        puck.vy *= -1; 
+    }
 
     let state = JSON.stringify({ type: 'state', players, puck });
     wss.clients.forEach(client => {
