@@ -251,10 +251,9 @@ function drawPlayer(p, scale) {
     let name = gameState.players[p.id]?.nick || "Igrač";
     ctx.fillText(name, p.x, p.y - p.radius - 15);
 }
-
 function gameLoop() {
     // 1. Šalji input
-    try { sendInput(); } catch(e) {}
+    sendInput();
 
     // 2. Očisti canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -266,30 +265,22 @@ function gameLoop() {
     drawVectorField();
 
     // 5. Crtaj igrače
-    for (let id in gameState.players) {
-        let p = gameState.players[id];
-        let screenP = {
-            ...p,
-            id: id, // prosleđujemo ID za nick
-            x: s.left + (p.x * s.scale),
-            y: s.top + (p.y * s.scale),
-            radius: 18.2 * s.scale 
-        };
-        drawPlayer(screenP, s.scale);
+    if (gameState.players) {
+        for (let id in gameState.players) {
+            let p = gameState.players[id];
+            let screenP = {
+                ...p,
+                id: id,
+                x: s.left + (p.x * s.scale),
+                y: s.top + (p.y * s.scale),
+                radius: 18.2 * s.scale 
+            };
+            drawPlayer(screenP, s.scale);
+        }
     }
 
     // 6. Crtaj pak
-    ctx.fillStyle = puck.color;
-    ctx.beginPath();
-    ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
-    ctx.fill();
-
-    requestAnimationFrame(gameLoop);
-}
-
-    // 3. Nacrtaj pak
     if (gameState.puck) {
-        const s = getSpecs();
         ctx.fillStyle = puck.color;
         ctx.beginPath();
         ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
