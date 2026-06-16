@@ -12,8 +12,9 @@
         }
         canvas { 
     display: block; 
-    margin: 0 auto; /* Centriranje */
+    margin: 5px auto; /* Malo prostora gore/dole, centrirano levo/desno */
     background-color: #19252B;
+    /* Obavezno obriši width: 100vw; ili height: 100vh; ako su ostali */
 }
         .scoreboard {
             position: absolute; top: 0px; left: 50.49%; transform: translateX(-50%);
@@ -168,21 +169,26 @@ function getSpecs() {
     };
 }
 function resizeCanvas() {
-    // Hokejaški teren je otprilike 2:1 odnos
-    const aspectRatio = 2.0; 
-    let w = window.innerWidth;
-    let h = window.innerWidth / aspectRatio;
+    // Odnos terena
+    const ratio = 3000 / 1500; 
+    
+    // Uzimamo 95% dostupnog prostora
+    let w = window.innerWidth * 0.95;
+    let h = w / ratio;
 
-    // Ako je visina prevelika za ekran, smanji prema visini
-    if (h > window.innerHeight) {
-        h = window.innerHeight;
-        w = h * aspectRatio;
+    // Ako je ta visina i dalje veća od visine ekrana, smanjujemo po visini
+    if (h > window.innerHeight * 0.95) {
+        h = window.innerHeight * 0.95;
+        w = h * ratio;
     }
 
     canvas.width = w;
     canvas.height = h;
     
-    // Ovo osigurava da canvas uvek bude čitljiv
+    // Ovo je ključno: CSS veličina mora da prati fizičku rezoluciju canvas-a
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    
     resetPositions();
 }
 function drawVectorField() {
