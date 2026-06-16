@@ -8,6 +8,14 @@
 <script>
 const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
 const socket = new WebSocket(`${protocol}://${window.location.host}`);
+socket.onopen = () => {
+    console.log("Konekcija otvorena, pridružujem se sobi...");
+    socket.send(JSON.stringify({ 
+        type: 'join-room', 
+        room: 'test-soba', // Možeš ovde dodati input za ime sobe
+        nick: 'Igrač' 
+    }));
+};
 
 const WORLD_WIDTH = 3000;
 const WORLD_HEIGHT = 1500;
