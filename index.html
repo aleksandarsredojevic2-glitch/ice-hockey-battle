@@ -12,11 +12,10 @@
         }
         canvas { 
     display: block; 
-    margin: 5px auto; /* Malo prostora gore/dole, centrirano levo/desno */
-    background-color: #19252B;
-    /* Obavezno obriši width: 100vw; ili height: 100vh; ako su ostali */
+    width: 100vw; 
+    height: 100vh; 
 }
-        .scoreboard {
+  .scoreboard {
             position: absolute; top: 0px; left: 50.49%; transform: translateX(-50%);
             font-size: 25px; font-weight: bold; background: rgba(0, 0, 0, 0.9);
             padding: 8px 32px; border-radius: 2px; border: none;
@@ -137,58 +136,35 @@ for(let i = 0; i < 65; i++) {
     }
     
 function getSpecs() {
-    // Koristimo dimenzije canvas-a, ne prozora
-    const canvasW = canvas.width;
-    const canvasH = canvas.height;
+    const startX = (WORLD_WIDTH - ICE_WIDTH) / 2;
+    const startY = (WORLD_HEIGHT - ICE_HEIGHT) / 2;
+    const r = 160; 
     
-    const scaleX = canvasW / WORLD_WIDTH;
-    const scaleY = canvasH / WORLD_HEIGHT;
-    const scale = Math.min(scaleX, scaleY) * 0.95;
-
-    const scaledWidth = ICE_WIDTH * scale;
-    const scaledHeight = ICE_HEIGHT * scale;
-    const startX = (canvasW - scaledWidth) / 2;
-    const startY = (canvasH - scaledHeight) / 2;
-
     return {
-        scale: scale,
-        left: startX,
-        right: startX + scaledWidth,
-        top: startY,
-        bottom: startY + scaledHeight,
-        cornerRadius: 160 * scale,
-        goalLineLeft: startX + (ICE_WIDTH * 0.07 * scale),
-        goalLineRight: startX + (ICE_WIDTH * 0.93 * scale),
-        faceoffR: ICE_HEIGHT * 0.13 * scale,
-        goal: {
-            w: (ICE_WIDTH * 0.025) * scale,
-            h: (ICE_HEIGHT * 0.15) * scale,
-            y: startY + ((ICE_HEIGHT * scale) / 2) - ((ICE_HEIGHT * 0.15 * scale) / 2),
-            creaseR: (ICE_HEIGHT * 0.15 * scale) * 0.55
+        scale: 1, // Ovde je trik: ostavljamo skalu 1 (originalna veličina)
+        left: startX, 
+        right: startX + ICE_WIDTH, 
+        top: startY, 
+        bottom: startY + ICE_HEIGHT, 
+        cornerRadius: r,
+        goalLineLeft: startX + (ICE_WIDTH * 0.07), 
+        goalLineRight: startX + ICE_WIDTH - (ICE_WIDTH * 0.07), 
+        faceoffR: ICE_HEIGHT * 0.13, 
+        goal: { 
+            w: ICE_WIDTH * 0.025, 
+            h: ICE_HEIGHT * 0.15, 
+            y: startY + (ICE_HEIGHT / 2) - ((ICE_HEIGHT * 0.15) / 2), 
+            creaseR: (ICE_HEIGHT * 0.15) * 0.55 
         }
     };
 }
 function resizeCanvas() {
-    // Odnos terena
-    const ratio = 3000 / 1500; 
-    
-    // Uzimamo 95% dostupnog prostora
-    let w = window.innerWidth * 0.95;
-    let h = w / ratio;
-
-    // Ako je ta visina i dalje veća od visine ekrana, smanjujemo po visini
-    if (h > window.innerHeight * 0.95) {
-        h = window.innerHeight * 0.95;
-        w = h * ratio;
-    }
-
-    canvas.width = w;
-    canvas.height = h;
-    
-    // Ovo je ključno: CSS veličina mora da prati fizičku rezoluciju canvas-a
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
-    
+    // Fiksiramo internu rezoluciju canvasa na veličinu sveta
+    canvas.width = WORLD_WIDTH;
+    canvas.height = WORLD_HEIGHT;
+    // CSS-om samo kažemo da popuni ceo ekran
+    canvas.style.width = "100vw";
+    canvas.style.height = "100vh";
     resetPositions();
 }
 function drawVectorField() {
@@ -285,35 +261,40 @@ function gameLoop() {
     // 2. Očisti canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 3. Uzmi koordinate terena
-    const s = getSpecs(); 
+    // 3. Pronađi svog igrača (da bismo znali gde je kamera)
+    let myPlayer = gameState.players ? gameState.players[socket.id] : null;
 
-    // 4. Crtaj teren
+    // 4. Izračunaj kameru (prati igrača)
+    let camX = 0;
+    let camY = 0;
+    if (myPlayer) {
+        camX = Math.max(0, Math.min(myPlayer.x - canvas.width / 2, 3000 - canvas.width));
+        camY = Math.max(0, Math.min(myPlayer.y - canvas.height / 2, 1500 - canvas.height));
+    }
+
+    ctx.save();
+    ctx.translate(-camX, -camY); // Pomičemo pogled da igrač bude u centru
+
+    // 5. Crtaj teren (bez skaliranja, u punoj veličini 3000x1500)
     drawVectorField();
 
-    // 5. Crtaj igrače
+    // 6. Crtaj igrače (koristimo direktno p.x i p.y sa servera)
     if (gameState.players) {
         for (let id in gameState.players) {
             let p = gameState.players[id];
-            let screenP = {
-                ...p,
-                id: id,
-                x: s.left + (p.x * s.scale),
-                y: s.top + (p.y * s.scale),
-                radius: 18.2 * s.scale 
-            };
-            drawPlayer(screenP, s.scale);
+            drawPlayer(p, 1); // Skala je 1 (prirodna veličina)
         }
     }
 
-    // 6. Crtaj pak
+    // 7. Crtaj pak
     if (gameState.puck) {
-        ctx.fillStyle = puck.color;
+        ctx.fillStyle = "#1a1a1a";
         ctx.beginPath();
-        ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
+        ctx.arc(gameState.puck.x, gameState.puck.y, 7, 0, Math.PI * 2);
         ctx.fill();
     }
 
+    ctx.restore(); // Vraćamo sistem koordinata u normalu
     requestAnimationFrame(gameLoop);
 }
 function resetPositions() {
