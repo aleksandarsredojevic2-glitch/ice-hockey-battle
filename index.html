@@ -247,31 +247,39 @@ function drawPlayer(p) {
 }
 
 function gameLoop() {
-    sendInput();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    const s = getSpecs(); 
+    // 1. Nacrtaj teren
     drawVectorField();
 
-    for (let id in gameState.players) {
-        let p = gameState.players[id];
-        let screenP = {
-            ...p,
-            x: s.left + (p.x * s.scale),
-            y: s.top + (p.y * s.scale),
-            radius: (p.radius || 18.2) * s.scale 
-        };
-        drawPlayer(screenP);
+    // 2. Nacrtaj igrače
+    if (gameState.players) {
+        for (let id in gameState.players) {
+            let p = gameState.players[id];
+            // Provera da li su koordinate validne
+            if (p.x !== undefined && p.y !== undefined) {
+                let screenP = {
+                    ...p,
+                    x: s.left + (p.x * s.scale),
+                    y: s.top + (p.y * s.scale),
+                    radius: 18.2 * s.scale 
+                };
+                drawPlayer(screenP);
+            }
+        }
     }
 
-    ctx.fillStyle = puck.color;
-    ctx.beginPath();
-    ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
-    ctx.fill();
+    // 3. Nacrtaj pak
+    if (gameState.puck) {
+        const s = getSpecs();
+        ctx.fillStyle = puck.color;
+        ctx.beginPath();
+        ctx.arc(s.left + (gameState.puck.x * s.scale), s.top + (gameState.puck.y * s.scale), 7 * s.scale, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
     requestAnimationFrame(gameLoop);
 }
-
 function resetPositions() {
     const s = getSpecs();
     p1.radius = 16 * s.scale; p1.speed = 0.5 * s.scale;
@@ -319,6 +327,7 @@ function sendInput() {
             gameState.players = data.players;
             gameState.puck = data.puck;
             gameActive = true;
+            console.log("Prijem stanja:", data.players);
         } else if (data.type === 'chat') {
             let msgElement = document.createElement('div');
             msgElement.innerText = data.text;
