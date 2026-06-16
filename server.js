@@ -21,6 +21,7 @@ wss.on('connection', (ws) => {
 
         // 1. Join Room
         if (data.type === 'join-room') {
+        console.log("Primljena poruka tipa:", data.type);
             myRoom = data.room;
             if (!rooms[myRoom]) {
                 rooms[myRoom] = { players: [], masterId: null };
