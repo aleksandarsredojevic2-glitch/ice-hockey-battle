@@ -121,6 +121,7 @@
     let p1 = { x: 0, y: 0, vx: 0, vy: 0, radius: 18.2, speed: 0.85, friction: 0.885, color: '#ff3333', role: 'p1' };
     let p2 = { x: 0, y: 0, vx: 0, vy: 0, radius: 18.2, speed: 0.85, friction: 0.885, color: '#3333ff', role: 'p2' };
     let puck = { x: 0, y: 0, vx: 0, vy: 0, radius: 7, friction: 0.979, color: '#1a1a1a' };
+    let myId = null;
     let playerNicks = { p1: "Crveni", p2: "Plavi" };
     let iceScratches = [];
 for(let i = 0; i < 65; i++) {
@@ -255,38 +256,39 @@ function drawPlayer(p, scale) {
     ctx.fillText(name, p.x, p.y - p.radius - 15);
 }
 function gameLoop() {
-    // 1. Šalji input
     sendInput();
-
-    // 2. Očisti canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // 3. Pronađi svog igrača (da bismo znali gde je kamera)
+    // 1. Pronađi svog igrača - socket.id ti treba ako ga server šalje pri konekciji
+    // Ako server ne šalje tvoj ID, moramo ga dodati u onmessage ili globalno
     let myPlayer = gameState.players ? gameState.players[socket.id] : null;
 
-    // 4. Izračunaj kameru (prati igrača)
     let camX = 0;
     let camY = 0;
+
+    // Ako nemamo myPlayer (nismo dobili state), kamera je na sredini terena
     if (myPlayer) {
-        camX = Math.max(0, Math.min(myPlayer.x - canvas.width / 2, 3000 - canvas.width));
-        camY = Math.max(0, Math.min(myPlayer.y - canvas.height / 2, 1500 - canvas.height));
+        camX = Math.max(0, Math.min(myPlayer.x - canvas.width / 2, WORLD_WIDTH - canvas.width));
+        camY = Math.max(0, Math.min(myPlayer.y - canvas.height / 2, WORLD_HEIGHT - canvas.height));
+    } else {
+        camX = (WORLD_WIDTH - canvas.width) / 2;
+        camY = (WORLD_HEIGHT - canvas.height) / 2;
     }
 
     ctx.save();
-    ctx.translate(-camX, -camY); // Pomičemo pogled da igrač bude u centru
+    ctx.translate(-camX, -camY);
 
-    // 5. Crtaj teren (bez skaliranja, u punoj veličini 3000x1500)
     drawVectorField();
 
-    // 6. Crtaj igrače (koristimo direktno p.x i p.y sa servera)
     if (gameState.players) {
         for (let id in gameState.players) {
             let p = gameState.players[id];
-            drawPlayer(p, 1); // Skala je 1 (prirodna veličina)
+            // BITNO: Moramo proslediti ID igraču da bi drawPlayer mogao da nađe nick
+            p.id = id; 
+            drawPlayer(p, 1); 
         }
     }
 
-    // 7. Crtaj pak
     if (gameState.puck) {
         ctx.fillStyle = "#1a1a1a";
         ctx.beginPath();
@@ -294,7 +296,7 @@ function gameLoop() {
         ctx.fill();
     }
 
-    ctx.restore(); // Vraćamo sistem koordinata u normalu
+    ctx.restore();
     requestAnimationFrame(gameLoop);
 }
 function resetPositions() {
@@ -342,6 +344,9 @@ function sendInput() {
 
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        if (data.type === 'your-id') { // Server treba da pošalje tvoj ID
+        myId = data.id;
+    }
         if (data.type === 'state') {
             gameState.players = data.players;
             gameState.puck = data.puck;
