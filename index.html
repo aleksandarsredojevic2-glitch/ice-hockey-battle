@@ -99,41 +99,62 @@ let puckTarget = { x: 0, y: 0 }; // Gde pak treba da stigne (za interpolaciju)
 function update() {
     if (!gameActive) return;
 
-    // 1. INPUT
+    // 1. INPUT: Pomeri sebe
     let dx = 0; let dy = 0;
-    if (keys['a']) dx -= 1; if (keys['d']) dx += 1;
-    if (keys['w']) dy -= 1; if (keys['s']) dy += 1;
-    
-    myPlayer.vx += dx * myPlayer.speed;
-    myPlayer.vy += dy * myPlayer.speed;
-    myPlayer.vx *= 0.95; // Trenje
+    if (keys['a'] || keys[37]) dx -= 1;
+    if (keys['d'] || keys[39]) dx += 1;
+    if (keys['w'] || keys[38]) dy -= 1;
+    if (keys['s'] || keys[40]) dy += 1;
+
+    let mag = Math.sqrt(dx * dx + dy * dy);
+    if (mag > 0) {
+        myPlayer.vx += (dx / mag) * myPlayer.speed;
+        myPlayer.vy += (dy / mag) * myPlayer.speed;
+    }
+
+    // 2. FIZIKA SEBE: Trenje i pozicija
+    myPlayer.vx *= 0.95; 
     myPlayer.vy *= 0.95;
     myPlayer.x += myPlayer.vx;
     myPlayer.y += myPlayer.vy;
 
-    // 2. SLANJE
+    // 3. KOLIZIJE: Proveri sebe protiv svih ostalih igrača
+    players.forEach(otherPlayer => {
+        handleCollision(myPlayer, otherPlayer);
+    });
+
+    // 4. KOLIZIJE: Proveri sebe protiv paka
+    handleCollision(myPlayer, puck);
+
+    // 5. ZIDOVI: Uvek proveri granice terena za sebe
+    handleRinkBoundaries(myPlayer, false);
+
+    // 6. SLANJE: Pošalji svoju novu poziciju svima
     socket.send(JSON.stringify({ 
         type: 'player-update', 
-        x: myPlayer.x, y: myPlayer.y, vx: myPlayer.vx, vy: myPlayer.vy 
+        x: myPlayer.x, 
+        y: myPlayer.y, 
+        vx: myPlayer.vx, 
+        vy: myPlayer.vy 
     }));
-}
+    
+    // 7. PAK (Ako si Master sobe):
+    if (isMaster) {
+        // Master računa kretanje paka za sve
+        puck.vx *= puck.friction;
+        puck.vy *= puck.friction;
+        puck.x += puck.vx;
+        puck.y += puck.vy;
+        
+        // Master proverava koliziju paka sa SVIM igračima
+        players.forEach(p => handleCollision(p, puck));
+        handleCollision(myPlayer, puck); // Ne zaboravi sebe
+        handleRinkBoundaries(puck, true);
 
-socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    if (data.type === 'init') {
-        myPlayer.id = data.id;
-    } 
-    else if (data.type === 'player-update') {
-        // Pronađi ili dodaj igrača
-        let p = players.find(pl => pl.id === data.senderId);
-        if (p) {
-            p.x = data.x; p.y = data.y;
-        } else {
-            players.push({ id: data.senderId, x: data.x, y: data.y, radius: 16, color: '#3333ff' });
-        }
+        // Sinhronizuj pak sa svima
+        socket.send(JSON.stringify({ type: 'puck-update', x: puck.x, y: puck.y }));
     }
-};
+}
 
 function gameLoop() {
     update();
@@ -154,6 +175,14 @@ function gameLoop() {
     
     ctx.restore();
     requestAnimationFrame(gameLoop);
+}
+function handleRinkBoundaries(obj, isPuck) {
+    const s = getSpecs();
+    // Jednostavno ograničavanje unutar WORLD dimenzija
+    if (obj.x - obj.radius < 0) { obj.x = obj.radius; obj.vx *= -0.5; }
+    if (obj.x + obj.radius > WORLD_WIDTH) { obj.x = WORLD_WIDTH - obj.radius; obj.vx *= -0.5; }
+    if (obj.y - obj.radius < 0) { obj.y = obj.radius; obj.vy *= -0.5; }
+    if (obj.y + obj.radius > WORLD_HEIGHT) { obj.y = WORLD_HEIGHT - obj.radius; obj.vy *= -0.5; }
 }
  function drawPlayer(p) {
     ctx.save(); 
@@ -257,9 +286,26 @@ function drawVectorField() {
             ctx.strokeStyle = "#334155"; ctx.lineWidth = 7 * s.scale;
             ctx.beginPath(); ctx.arc(s.left + s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI, Math.PI * 1.5); ctx.lineTo(s.right - s.cornerRadius, s.top); ctx.arc(s.right - s.cornerRadius, s.top + s.cornerRadius, s.cornerRadius, Math.PI * 1.5, 0); ctx.lineTo(s.right, s.bottom - s.cornerRadius); ctx.arc(s.right - s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, 0, Math.PI * 0.5); ctx.lineTo(s.left + s.cornerRadius, s.bottom); ctx.arc(s.left + s.cornerRadius, s.bottom - s.cornerRadius, s.cornerRadius, Math.PI * 0.5, Math.PI); ctx.closePath(); ctx.stroke();
         }
+// Uklanja igrača iz niza kada diskonektuje
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-// ... (ostatak funkcija: drawPlayer, drawVectorField...)
-
+    if (data.type === 'init') {
+        myPlayer.id = data.id;
+    } else if (data.type === 'player-update') {
+        let p = players.find(pl => pl.id === data.senderId);
+        if (p) {
+            p.x = data.x; p.y = data.y;
+            p.vx = data.vx; p.vy = data.vy;
+        } else {
+            // Dodaj novog igrača ako ne postoji
+            players.push({ id: data.senderId, x: data.x, y: data.y, radius: 16, color: '#3333ff', role: data.role || 'guest' });
+        }
+    } else if (data.type === 'player-disconnected') {
+        // OVO JE KLJUČNO: Uklanja igrača iz niza
+        players = players.filter(pl => pl.id !== data.senderId);
+    }
+};
 </script>
 </body>
 </html>
