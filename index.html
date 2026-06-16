@@ -45,125 +45,47 @@
 </div>
 <div id="statusOverlay" class="status-overlay">Povezivanje sa serverom...</div>
 <canvas id="hockeyCanvas"></canvas>
+// 1. Podesi fiksne dimenzije
+function resizeCanvas() {
+    canvas.width = WORLD_WIDTH;  // 3000
+    canvas.height = WORLD_HEIGHT; // 1500
+    // CSS u tvom stilu (.canvas { width: 100vw; height: 100vh; }) će ovo skalirati na ekran
+}
+
+// 2. Sređeni gameLoop sa pravilnom kamerom
+function gameLoop() {
+    update();
     
-<script>
-    const socket = new WebSocket('wss://' + window.location.host);
-    const canvas = document.getElementById("hockeyCanvas");
-    const ctx = canvas.getContext("2d");
+    // Očisti celo platno
+    ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    let me = (myRole === 'p1') ? p1 : p2;
     
-    let gameState = { players: {}, puck: { x: 0, y: 0 } };
-    let myId = null;
-    const WORLD_WIDTH = 3000;
-    const WORLD_HEIGHT = 1500;
-    let keys = {};
-
-    function joinGame() {
-        const nick = document.getElementById('nick-input').value.trim();
-        if (nick === "") return alert("Unesi nadimak!");
-        document.getElementById('login-screen').style.display = 'none';
-        socket.send(JSON.stringify({ type: 'set-nick', nick: nick }));
-    }
-
-    function resizeCanvas() {
-        canvas.width = WORLD_WIDTH;
-        canvas.height = WORLD_HEIGHT;
-    }
-
-    function drawVectorField() {
-        // Pozadina
-        ctx.fillStyle = "#1F232B"; 
-        ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-        
-        // Teren
-        ctx.fillStyle = "#e5edf5";
-        ctx.fillRect(250, 150, 2500, 1200);
-
-        // Linije terena (pojednostavljeno za punu veličinu)
-        ctx.strokeStyle = "rgba(230, 60, 60, 0.6)"; ctx.lineWidth = 10;
-        ctx.beginPath(); ctx.moveTo(WORLD_WIDTH / 2, 150); ctx.lineTo(WORLD_WIDTH / 2, 1350); ctx.stroke();
-        
-        ctx.strokeStyle = "rgba(60, 60, 230, 0.5)"; ctx.lineWidth = 10;
-        ctx.beginPath();
-        ctx.moveTo(750, 150); ctx.lineTo(750, 1350);
-        ctx.moveTo(2250, 150); ctx.lineTo(2250, 1350);
-        ctx.stroke();
-    }
-
-    function drawPlayer(p) {
-        ctx.save();
-        ctx.shadowBlur = 15; ctx.shadowColor = p.color;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 35, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; ctx.stroke();
-        ctx.restore();
-        
-        ctx.fillStyle = "#fff"; ctx.font = "bold 24px Arial"; ctx.textAlign = "center";
-        ctx.fillText(gameState.players[p.id]?.nick || "Igrač", p.x, p.y - 50);
-    }
-
-    function gameLoop() {
-        sendInput();
-        ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-        
-        let myPlayer = gameState.players ? gameState.players[myId] : null;
-
-        let camX = 0, camY = 0;
-        if (myPlayer) {
-            camX = Math.max(0, Math.min(myPlayer.x - window.innerWidth / 2, WORLD_WIDTH - window.innerWidth));
-            camY = Math.max(0, Math.min(myPlayer.y - window.innerHeight / 2, WORLD_HEIGHT - window.innerHeight));
-        }
-
-        ctx.save();
-        ctx.translate(-camX, -camY);
-
-        drawVectorField();
-
-        for (let id in gameState.players) {
-            let p = gameState.players[id];
-            p.id = id;
-            drawPlayer(p);
-        }
-
-        if (gameState.puck) {
-            ctx.fillStyle = "#1a1a1a";
-            ctx.beginPath();
-            ctx.arc(gameState.puck.x, gameState.puck.y, 15, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        ctx.restore();
-        requestAnimationFrame(gameLoop);
-    }
-
-    function sendInput() {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'input', keys: keys }));
-        }
-    }
-
-    socket.onopen = () => document.getElementById("statusOverlay").style.display = "none";
+    // Izračunaj kameru tako da vidiš svet od 3000x1500, a ekran je tvoj prozor
+    let camX = 0;
+    let camY = 0;
     
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'your-id') myId = data.id;
-        if (data.type === 'state') {
-            gameState.players = data.players;
-            gameState.puck = data.puck;
-        } else if (data.type === 'chat') {
-            let msg = document.createElement('div');
-            msg.innerText = data.text;
-            document.getElementById('chat-box').appendChild(msg);
-        }
-    };
+    if (myRole !== 'spectator' && myRole !== null) {
+        camX = Math.max(0, Math.min(me.x - window.innerWidth / 2, WORLD_WIDTH - window.innerWidth));
+        camY = Math.max(0, Math.min(me.y - window.innerHeight / 2, WORLD_HEIGHT - window.innerHeight));
+    }
 
-    window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+    ctx.save();
+    ctx.translate(-camX, -camY); // Pomeri pogled na igrača
 
-    resizeCanvas();
-    gameLoop();
-</script>
+    drawVectorField(); // Crtaj teren na punim koordinatama
+    drawPlayer(p1);
+    drawPlayer(p2);
+    
+    // Pak
+    ctx.fillStyle = puck.color; 
+    ctx.beginPath(); 
+    ctx.arc(puck.x, puck.y, puck.radius, 0, Math.PI * 2); 
+    ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+    
+    ctx.restore();
+    requestAnimationFrame(gameLoop);
+}
 </body>
 </html>
